@@ -1,0 +1,24 @@
+{
+    "name": "karelwintersky/arris.cache",
+    "description": "Arris µFramework Cache Redis wrapper",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Arris\\Cache\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Karel Wintersky",
+            "email": "karel.wintersky@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.3.0",
+        "ext-pdo": "*",
+        "ext-json": "*",
+        "ext-redis": "*",
+        "psr/log": "^1.1"
+    }
+}
