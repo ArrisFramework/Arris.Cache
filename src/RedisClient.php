@@ -6,6 +6,8 @@ use Exception;
 use Redis;
 use RedisException;
 
+use Arris\Cache\Exceptions\RedisClientException;
+
 if (!defined('CRLF')) {
     define('CRLF', sprintf('%s%s', chr(13), chr(10)));
 }

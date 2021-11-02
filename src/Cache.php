@@ -2,9 +2,10 @@
 
 namespace Arris\Cache;
 
-use Arris\Exceptions\CacheRoutingException;
 use JsonException;
 use PDO;
+use Arris\Cache\Exceptions\CacheRoutingException;
+use Arris\Cache\Exceptions\RedisClientException;
 use Psr\Log\LoggerInterface;
 
 class Cache

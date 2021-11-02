@@ -1,6 +1,6 @@
 <?php
 
-namespace Arris\Cache;
+namespace Arris\Cache\Exceptions;
 
 class RedisClientException extends \RuntimeException
 {
