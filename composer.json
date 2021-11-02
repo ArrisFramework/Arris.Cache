@@ -20,5 +20,10 @@
         "ext-json": "*",
         "ext-redis": "*",
         "psr/log": "^1.1"
+    },
+    "require-dev": {
+        "karelwintersky/arris": "^1.63.0",
+        "karelwintersky/arris.helpers": "^0.4.0",
+        "vlucas/phpdotenv": "^3.3"
     }
 }

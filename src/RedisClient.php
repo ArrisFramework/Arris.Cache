@@ -11,132 +11,132 @@ if (!defined('CRLF')) {
 }
 
 /**
- * Client, a lightweight Redis PHP standalone client and phpredis wrapper
+ * RedisClient, a lightweight Redis PHP standalone client and phpredis wrapper
  *
  * Server/Connection:
- * @method Client               pipeline()
- * @method Client               multi()
- * @method Client               watch(string ...$keys)
- * @method Client               unwatch()
+ * @method RedisClient               pipeline()
+ * @method RedisClient               multi()
+ * @method RedisClient               watch(string ...$keys)
+ * @method RedisClient               unwatch()
  * @method array                exec()
- * @method string|Client        flushAll()
- * @method string|Client        flushDb()
- * @method array|Client         info(string $section = null)
- * @method bool|array|Client    config(string $setGet, string $key, string $value = null)
- * @method array|Client         role()
- * @method array|Client         time()
+ * @method string|RedisClient        flushAll()
+ * @method string|RedisClient        flushDb()
+ * @method array|RedisClient         info(string $section = null)
+ * @method bool|array|RedisClient    config(string $setGet, string $key, string $value = null)
+ * @method array|RedisClient         role()
+ * @method array|RedisClient         time()
  *
  * Keys:
- * @method int|Client           del(string $key)
- * @method int|Client           exists(string $key)
- * @method int|Client           expire(string $key, int $seconds)
- * @method int|Client           expireAt(string $key, int $timestamp)
- * @method array|Client         keys(string $key)
- * @method int|Client           persist(string $key)
- * @method bool|Client          rename(string $key, string $newKey)
- * @method bool|Client          renameNx(string $key, string $newKey)
- * @method array|Client         sort(string $key, string $arg1, string $valueN = null)
- * @method int|Client           ttl(string $key)
- * @method string|Client        type(string $key)
+ * @method int|RedisClient           del(string $key)
+ * @method int|RedisClient           exists(string $key)
+ * @method int|RedisClient           expire(string $key, int $seconds)
+ * @method int|RedisClient           expireAt(string $key, int $timestamp)
+ * @method array|RedisClient         keys(string $key)
+ * @method int|RedisClient           persist(string $key)
+ * @method bool|RedisClient          rename(string $key, string $newKey)
+ * @method bool|RedisClient          renameNx(string $key, string $newKey)
+ * @method array|RedisClient         sort(string $key, string $arg1, string $valueN = null)
+ * @method int|RedisClient           ttl(string $key)
+ * @method string|RedisClient        type(string $key)
  *
  * Scalars:
- * @method int|Client           append(string $key, string $value)
- * @method int|Client           decr(string $key)
- * @method int|Client           decrBy(string $key, int $decrement)
- * @method bool|string|Client   get(string $key)
- * @method int|Client           getBit(string $key, int $offset)
- * @method string|Client        getRange(string $key, int $start, int $end)
- * @method string|Client        getSet(string $key, string $value)
- * @method int|Client           incr(string $key)
- * @method int|Client           incrBy(string $key, int $decrement)
- * @method array|Client         mGet(array $keys)
- * @method bool|Client          mSet(array $keysValues)
- * @method int|Client           mSetNx(array $keysValues)
- * @method bool|Client          set(string $key, string $value, int | array $options = null)
- * @method int|Client           setBit(string $key, int $offset, int $value)
- * @method bool|Client          setEx(string $key, int $seconds, string $value)
- * @method int|Client           setNx(string $key, string $value)
- * @method int |Client          setRange(string $key, int $offset, int $value)
- * @method int|Client           strLen(string $key)
+ * @method int|RedisClient           append(string $key, string $value)
+ * @method int|RedisClient           decr(string $key)
+ * @method int|RedisClient           decrBy(string $key, int $decrement)
+ * @method bool|string|RedisClient   get(string $key)
+ * @method int|RedisClient           getBit(string $key, int $offset)
+ * @method string|RedisClient        getRange(string $key, int $start, int $end)
+ * @method string|RedisClient        getSet(string $key, string $value)
+ * @method int|RedisClient           incr(string $key)
+ * @method int|RedisClient           incrBy(string $key, int $decrement)
+ * @method array|RedisClient         mGet(array $keys)
+ * @method bool|RedisClient          mSet(array $keysValues)
+ * @method int|RedisClient           mSetNx(array $keysValues)
+ * @method bool|RedisClient          set(string $key, string $value, int | array $options = null)
+ * @method int|RedisClient           setBit(string $key, int $offset, int $value)
+ * @method bool|RedisClient          setEx(string $key, int $seconds, string $value)
+ * @method int|RedisClient           setNx(string $key, string $value)
+ * @method int |RedisClient          setRange(string $key, int $offset, int $value)
+ * @method int|RedisClient           strLen(string $key)
  *
  * Sets:
- * @method int|Client           sAdd(string $key, mixed $value, string $valueN = null)
- * @method int|Client           sRem(string $key, mixed $value, string $valueN = null)
- * @method array|Client         sMembers(string $key)
- * @method array|Client         sUnion(mixed $keyOrArray, string $valueN = null)
- * @method array|Client         sInter(mixed $keyOrArray, string $valueN = null)
- * @method array |Client        sDiff(mixed $keyOrArray, string $valueN = null)
- * @method string|Client        sPop(string $key)
- * @method int|Client           sCard(string $key)
- * @method int|Client           sIsMember(string $key, string $member)
- * @method int|Client           sMove(string $source, string $dest, string $member)
- * @method string|array|Client  sRandMember(string $key, int $count = null)
- * @method int|Client           sUnionStore(string $dest, string $key1, string $key2 = null)
- * @method int|Client           sInterStore(string $dest, string $key1, string $key2 = null)
- * @method int|Client           sDiffStore(string $dest, string $key1, string $key2 = null)
+ * @method int|RedisClient           sAdd(string $key, mixed $value, string $valueN = null)
+ * @method int|RedisClient           sRem(string $key, mixed $value, string $valueN = null)
+ * @method array|RedisClient         sMembers(string $key)
+ * @method array|RedisClient         sUnion(mixed $keyOrArray, string $valueN = null)
+ * @method array|RedisClient         sInter(mixed $keyOrArray, string $valueN = null)
+ * @method array |RedisClient        sDiff(mixed $keyOrArray, string $valueN = null)
+ * @method string|RedisClient        sPop(string $key)
+ * @method int|RedisClient           sCard(string $key)
+ * @method int|RedisClient           sIsMember(string $key, string $member)
+ * @method int|RedisClient           sMove(string $source, string $dest, string $member)
+ * @method string|array|RedisClient  sRandMember(string $key, int $count = null)
+ * @method int|RedisClient           sUnionStore(string $dest, string $key1, string $key2 = null)
+ * @method int|RedisClient           sInterStore(string $dest, string $key1, string $key2 = null)
+ * @method int|RedisClient           sDiffStore(string $dest, string $key1, string $key2 = null)
  *
  * Hashes:
- * @method bool|int|Client      hSet(string $key, string $field, string $value)
- * @method bool|Client          hSetNx(string $key, string $field, string $value)
- * @method bool|string|Client   hGet(string $key, string $field)
- * @method bool|int|Client      hLen(string $key)
- * @method bool|Client          hDel(string $key, string $field)
- * @method array|Client         hKeys(string $key, string $field)
- * @method array|Client         hVals(string $key)
- * @method array|Client         hGetAll(string $key)
- * @method bool|Client          hExists(string $key, string $field)
- * @method int|Client           hIncrBy(string $key, string $field, int $value)
- * @method float|Client         hIncrByFloat(string $key, string $member, float $value)
- * @method bool|Client          hMSet(string $key, array $keysValues)
- * @method array|Client         hMGet(string $key, array $fields)
+ * @method bool|int|RedisClient      hSet(string $key, string $field, string $value)
+ * @method bool|RedisClient          hSetNx(string $key, string $field, string $value)
+ * @method bool|string|RedisClient   hGet(string $key, string $field)
+ * @method bool|int|RedisClient      hLen(string $key)
+ * @method bool|RedisClient          hDel(string $key, string $field)
+ * @method array|RedisClient         hKeys(string $key, string $field)
+ * @method array|RedisClient         hVals(string $key)
+ * @method array|RedisClient         hGetAll(string $key)
+ * @method bool|RedisClient          hExists(string $key, string $field)
+ * @method int|RedisClient           hIncrBy(string $key, string $field, int $value)
+ * @method float|RedisClient         hIncrByFloat(string $key, string $member, float $value)
+ * @method bool|RedisClient          hMSet(string $key, array $keysValues)
+ * @method array|RedisClient         hMGet(string $key, array $fields)
  *
  * Lists:
- * @method array|null|Client    blPop(string $keyN, int $timeout)
- * @method array|null|Client    brPop(string $keyN, int $timeout)
- * @method array|null |Client   brPoplPush(string $source, string $destination, int $timeout)
- * @method string|null|Client   lIndex(string $key, int $index)
- * @method int|Client           lInsert(string $key, string $beforeAfter, string $pivot, string $value)
- * @method int|Client           lLen(string $key)
- * @method string|null|Client   lPop(string $key)
- * @method int|Client           lPush(string $key, mixed $value, mixed $valueN = null)
- * @method int|Client           lPushX(string $key, mixed $value)
- * @method array|Client         lRange(string $key, int $start, int $stop)
- * @method int|Client           lRem(string $key, int $count, mixed $value)
- * @method bool|Client          lSet(string $key, int $index, mixed $value)
- * @method bool|Client          lTrim(string $key, int $start, int $stop)
- * @method string|null|Client   rPop(string $key)
- * @method string|null|Client   rPoplPush(string $source, string $destination)
- * @method int|Client           rPush(string $key, mixed $value, mixed $valueN = null)
- * @method int |Client          rPushX(string $key, mixed $value)
+ * @method array|null|RedisClient    blPop(string $keyN, int $timeout)
+ * @method array|null|RedisClient    brPop(string $keyN, int $timeout)
+ * @method array|null |RedisClient   brPoplPush(string $source, string $destination, int $timeout)
+ * @method string|null|RedisClient   lIndex(string $key, int $index)
+ * @method int|RedisClient           lInsert(string $key, string $beforeAfter, string $pivot, string $value)
+ * @method int|RedisClient           lLen(string $key)
+ * @method string|null|RedisClient   lPop(string $key)
+ * @method int|RedisClient           lPush(string $key, mixed $value, mixed $valueN = null)
+ * @method int|RedisClient           lPushX(string $key, mixed $value)
+ * @method array|RedisClient         lRange(string $key, int $start, int $stop)
+ * @method int|RedisClient           lRem(string $key, int $count, mixed $value)
+ * @method bool|RedisClient          lSet(string $key, int $index, mixed $value)
+ * @method bool|RedisClient          lTrim(string $key, int $start, int $stop)
+ * @method string|null|RedisClient   rPop(string $key)
+ * @method string|null|RedisClient   rPoplPush(string $source, string $destination)
+ * @method int|RedisClient           rPush(string $key, mixed $value, mixed $valueN = null)
+ * @method int |RedisClient          rPushX(string $key, mixed $value)
  *
  * Sorted Sets:
- * @method int|Client           zAdd(string $key, double $score, string $value)
- * @method int|Client           zCard(string $key)
- * @method int|Client           zSize(string $key)
- * @method int|Client           zCount(string $key, mixed $start, mixed $stop)
- * @method int|Client           zIncrBy(string $key, double $value, string $member)
- * @method array|Client         zRangeByScore(string $key, mixed $start, mixed $stop, array $args = null)
- * @method array|Client         zRevRangeByScore(string $key, mixed $start, mixed $stop, array $args = null)
- * @method int|Client           zRemRangeByScore(string $key, mixed $start, mixed $stop)
- * @method array|Client         zRange(string $key, mixed $start, mixed $stop, array $args = null)
- * @method array|Client         zRevRange(string $key, mixed $start, mixed $stop, array $args = null)
- * @method int|Client           zRank(string $key, string $member)
- * @method int|Client           zRevRank(string $key, string $member)
- * @method int|Client           zRem(string $key, string $member)
- * @method int|Client           zDelete(string $key, string $member)
+ * @method int|RedisClient           zAdd(string $key, double $score, string $value)
+ * @method int|RedisClient           zCard(string $key)
+ * @method int|RedisClient           zSize(string $key)
+ * @method int|RedisClient           zCount(string $key, mixed $start, mixed $stop)
+ * @method int|RedisClient           zIncrBy(string $key, double $value, string $member)
+ * @method array|RedisClient         zRangeByScore(string $key, mixed $start, mixed $stop, array $args = null)
+ * @method array|RedisClient         zRevRangeByScore(string $key, mixed $start, mixed $stop, array $args = null)
+ * @method int|RedisClient           zRemRangeByScore(string $key, mixed $start, mixed $stop)
+ * @method array|RedisClient         zRange(string $key, mixed $start, mixed $stop, array $args = null)
+ * @method array|RedisClient         zRevRange(string $key, mixed $start, mixed $stop, array $args = null)
+ * @method int|RedisClient           zRank(string $key, string $member)
+ * @method int|RedisClient           zRevRank(string $key, string $member)
+ * @method int|RedisClient           zRem(string $key, string $member)
+ * @method int|RedisClient           zDelete(string $key, string $member)
  * TODO
  *
  * Pub/Sub
- * @method int |Client          publish(string $channel, string $message)
- * @method int|array|Client     pubsub(string $subCommand, $arg = null)
+ * @method int |RedisClient          publish(string $channel, string $message)
+ * @method int|array|RedisClient     pubsub(string $subCommand, $arg = null)
  *
  * Scripting:
- * @method string|int|Client    script(string $command, string $arg1 = null)
- * @method string|int|array|bool|Client eval(string $script, array $keys = null, array $args = null)
- * @method string|int|array|bool|Client evalSha(string $script, array $keys = null, array $args = null)
+ * @method string|int|RedisClient    script(string $command, string $arg1 = null)
+ * @method string|int|array|bool|RedisClient eval(string $script, array $keys = null, array $args = null)
+ * @method string|int|array|bool|RedisClient evalSha(string $script, array $keys = null, array $args = null)
  */
 
-class Client
+class RedisClient
 {
     public const TYPE_STRING = 'string';
     public const TYPE_LIST = 'list';
@@ -282,7 +282,7 @@ class Client
      * @param string $persistent Flag to establish persistent connection
      * @param int $db The selected datbase of the Redis server
      * @param string $password The authentication password of the Redis server
-     * @throws CredisException
+     * @throws RedisClientException
      */
     public function __construct(string $host = '127.0.0.1', int $port = 6379, float $timeout = null, string $persistent = '', int $db = 0, string $password = null)
     {
@@ -352,8 +352,8 @@ class Client
     }
 
     /**
-     * @return Client
-     * @throws CredisException
+     * @return RedisClient
+     * @throws RedisClientException
      */
     public function forceStandalone()
     {
@@ -361,7 +361,7 @@ class Client
             return $this;
         }
         if ($this->connected) {
-            throw new CredisException('Cannot force AJUR\CRedis\Client to use standalone PHP driver after a connection has already been established.');
+            throw new RedisClientException('Cannot force Arris\Cache\RedisClient to use standalone PHP driver after a connection has already been established.');
         }
         $this->standalone = TRUE;
         return $this;
@@ -369,7 +369,7 @@ class Client
 
     /**
      * @param int $retries
-     * @return Client
+     * @return RedisClient
      */
     public function setMaxConnectRetries($retries)
     {
@@ -379,7 +379,7 @@ class Client
 
     /**
      * @param bool $flag
-     * @return Client
+     * @return RedisClient
      */
     public function setCloseOnDestruct($flag)
     {
@@ -393,7 +393,7 @@ class Client
             if ($matches[1] === 'tcp' || $matches[1] === 'tls') {
                 $this->scheme = $matches[1];
                 if (!preg_match('#^([^:]+)(:([0-9]+))?(/(.+))?$#', $matches[2], $matches)) {
-                    throw new CredisException('Invalid host format; expected ' . $this->scheme . '://host[:port][/persistence_identifier]');
+                    throw new RedisClientException('Invalid host format; expected ' . $this->scheme . '://host[:port][/persistence_identifier]');
                 }
                 $this->host = $matches[1];
                 $this->port = (int)(isset($matches[3]) ? $matches[3] : $this->port);
@@ -403,7 +403,7 @@ class Client
                 $this->port = NULL;
                 $this->scheme = 'unix';
                 if ($this->host[0] !== '/') {
-                    throw new CredisException('Invalid unix socket format; expected unix:///path/to/redis.sock');
+                    throw new RedisClientException('Invalid unix socket format; expected unix:///path/to/redis.sock');
                 }
             }
         }
@@ -417,8 +417,8 @@ class Client
     }
 
     /**
-     * @return Client
-     * @throws CredisException
+     * @return RedisClient
+     * @throws RedisClientException
      */
     public function connect()
     {
@@ -463,7 +463,7 @@ class Client
             }
             $failures = $this->connectFailures;
             $this->connectFailures = 0;
-            throw new CredisException("Connection to Redis {$this->host}:{$this->port} failed after $failures failures." . (isset($errno) && isset($errstr) ? "Last Error : ({$errno}) {$errstr}" : ""));
+            throw new RedisClientException("Connection to Redis {$this->host}:{$this->port} failed after $failures failures." . (isset($errno) && isset($errstr) ? "Last Error : ({$errno}) {$errstr}" : ""));
         }
 
         $this->connectFailures = 0;
@@ -496,13 +496,13 @@ class Client
      * if not supported).
      *
      * @param int $timeout 0 (or -1) for no timeout, otherwise number of seconds
-     * @return Client
-     * @throws CredisException
+     * @return RedisClient
+     * @throws RedisClientException
      */
     public function setReadTimeout($timeout)
     {
         if ($timeout < -1) {
-            throw new CredisException('Timeout values less than -1 are not accepted.');
+            throw new RedisClientException('Timeout values less than -1 are not accepted.');
         }
         $this->readTimeout = $timeout;
         if ($this->isConnected()) {
@@ -691,8 +691,8 @@ class Client
     /**
      * @param string|array $patterns
      * @param $callback
-     * @return $this|array|bool|Client|mixed|null|string
-     * @throws CredisException
+     * @return $this|array|bool|RedisClient|mixed|null|string
+     * @throws RedisClientException
      */
     public function pSubscribe($patterns, $callback)
     {
@@ -707,13 +707,13 @@ class Client
 
             $this->subscribed = $status > 0;
             if (!$status) {
-                throw new CredisException('Invalid pSubscribe response.');
+                throw new RedisClientException('Invalid pSubscribe response.');
             }
         }
         while ($this->subscribed) {
             [$type, $pattern, $channel, $message] = $this->read_reply();
             if ($type !== 'pmessage') {
-                throw new CredisException('Received non-pmessage reply.');
+                throw new RedisClientException('Received non-pmessage reply.');
             }
             $callback($this, $pattern, $channel, $message);
         }
@@ -734,8 +734,8 @@ class Client
     /**
      * @param string|array $channels
      * @param $callback
-     * @return $this|array|bool|Client|mixed|null|string
-     * @throws CredisException
+     * @return $this|array|bool|RedisClient|mixed|null|string
+     * @throws RedisClientException
      */
     public function subscribe($channels, $callback)
     {
@@ -749,13 +749,13 @@ class Client
             [$command, $channel, $status] = $this->__call('subscribe', array($channels));
             $this->subscribed = $status > 0;
             if (!$status) {
-                throw new CredisException('Invalid subscribe response.');
+                throw new RedisClientException('Invalid subscribe response.');
             }
         }
         while ($this->subscribed) {
             [$type, $channel, $message] = $this->read_reply();
             if ($type !== 'message') {
-                throw new CredisException('Received non-message reply.');
+                throw new RedisClientException('Received non-message reply.');
             }
             $callback($this, $channel, $message);
         }
@@ -764,7 +764,7 @@ class Client
 
     /**
      * @param string|null $name
-     * @return string|Client
+     * @return string|RedisClient
      */
     public function ping($name = null)
     {
@@ -774,7 +774,7 @@ class Client
     /**
      * @param $name
      * @param $args
-     * @return $this|Client|array|bool|int|string|null
+     * @return $this|RedisClient|array|bool|int|string|null
      */
     public function __call($name, $args)
     {
@@ -915,7 +915,7 @@ class Client
             // In pipeline mode
             if ($this->usePipeline) {
                 if ($name === 'pipeline') {
-                    throw new CredisException('A pipeline is already in use and only one pipeline is supported.');
+                    throw new RedisClientException('A pipeline is already in use and only one pipeline is supported.');
                 }
 
                 if ($name === 'exec') {
@@ -1133,9 +1133,9 @@ class Client
                 $code = 0;
                 if (!($result = $this->redis->IsConnected())) {
                     $this->close(true);
-                    $code = CredisException::CODE_DISCONNECTED;
+                    $code = RedisClientException::CODE_DISCONNECTED;
                 }
-                throw new CredisException($e->getMessage(), $code, $e);
+                throw new RedisClientException($e->getMessage(), $code, $e);
             }
 
             #echo "> $name : ".substr(print_r($response, TRUE),0,100)."\n";
@@ -1163,7 +1163,7 @@ class Client
                     if ($error && substr($error, 0, 8) === 'NOSCRIPT') {
                         $response = NULL;
                     } else if ($error) {
-                        throw new CredisException($error);
+                        throw new RedisClientException($error);
                     }
                     break;
                 case 'exists':
@@ -1187,7 +1187,7 @@ class Client
                     $error = $this->redis->getLastError();
                     $this->redis->clearLastError();
                     if ($error) {
-                        throw new CredisException(rtrim($error));
+                        throw new RedisClientException(rtrim($error));
                     }
                     break;
             }
@@ -1204,7 +1204,7 @@ class Client
             // since transaction/watch state will be lost.
             if (($this->isMulti && !$this->usePipeline) || $this->isWatching) {
                 $this->close(true);
-                throw new CredisException('Lost connection to Redis server during watch or transaction.');
+                throw new RedisClientException('Lost connection to Redis server during watch or transaction.');
             }
             $this->close(true);
             $this->connect();
@@ -1222,7 +1222,7 @@ class Client
             $fwrite = fwrite($this->redis, substr($command, $written));
             if ($fwrite === FALSE || ($fwrite == 0 && $lastFailed)) {
                 $this->close(true);
-                throw new CredisException('Failed to write entire command to stream');
+                throw new RedisClientException('Failed to write entire command to stream');
             }
             $lastFailed = $fwrite == 0;
         }
@@ -1235,10 +1235,10 @@ class Client
             $info = stream_get_meta_data($this->redis);
             $this->close(true);
             if ($info['timed_out']) {
-                throw new CredisException('Read operation timed out.', CredisException::CODE_TIMED_OUT);
+                throw new RedisClientException('Read operation timed out.', RedisClientException::CODE_TIMED_OUT);
             }
 
-            throw new CredisException('Lost connection to Redis server.', CredisException::CODE_DISCONNECTED);
+            throw new RedisClientException('Lost connection to Redis server.', RedisClientException::CODE_DISCONNECTED);
         }
         $reply = rtrim($reply, CRLF);
         $replyType = $reply[0];
@@ -1250,7 +1250,7 @@ class Client
                 } else if ($name === 'evalsha' && substr($reply, 0, 9) === '-NOSCRIPT') {
                     $response = NULL;
                 } else {
-                    throw new CredisException(substr($reply, 0, 4) === '-ERR' ? 'ERR ' . substr($reply, 5) : substr($reply, 1));
+                    throw new RedisClientException(substr($reply, 0, 4) === '-ERR' ? 'ERR ' . substr($reply, 5) : substr($reply, 1));
                 }
                 break;
             /* Inline reply */
@@ -1270,7 +1270,7 @@ class Client
                 $response = stream_get_contents($this->redis, $size + 2);
                 if (!$response) {
                     $this->close(true);
-                    throw new CredisException('Error reading reply.');
+                    throw new RedisClientException('Error reading reply.');
                 }
                 $response = substr($response, 0, $size);
                 break;
@@ -1289,7 +1289,7 @@ class Client
                 $response = (int)substr($reply, 1);
                 break;
             default:
-                throw new CredisException('Invalid response: ' . print_r($reply, TRUE));
+                throw new RedisClientException('Invalid response: ' . print_r($reply, TRUE));
                 break;
         }
 
@@ -1329,7 +1329,7 @@ class Client
                 break;
             case 'hmget':
                 if (count($arguments) != count($response)) {
-                    throw new CredisException(
+                    throw new RedisClientException(
                         'hmget arguments and response do not match: ' . print_r($arguments, true) . ' ' . print_r(
                             $response, true
                         )

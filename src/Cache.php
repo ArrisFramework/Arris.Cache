@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
 class Cache
 {
     /**
-     * @var Client $redis
+     * @var RedisClient $redis
      */
     private static $redis;
 
@@ -55,10 +55,10 @@ class Cache
 
         if ($options['enabled']) {
             try {
-                self::$redis = new Client($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['db'], $options['password']);
+                self::$redis = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['db'], $options['password']);
                 self::$redis->connect();
                 self::$is_connected = true;
-            } catch (CredisException $e){
+            } catch (RedisClientException $e){
             }
         }
 

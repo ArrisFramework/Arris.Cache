@@ -2,7 +2,7 @@
 
 namespace Arris\Cache;
 
-class CredisException extends \RuntimeException
+class RedisClientException extends \RuntimeException
 {
     const CODE_TIMED_OUT = 1;
     const CODE_DISCONNECTED = 2;
