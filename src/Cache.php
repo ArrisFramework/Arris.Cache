@@ -277,7 +277,7 @@ class Cache implements CacheInterface
         $data = '';
 
         // если источник данных SQL
-        if ($rule_definition['source'] === 'sql') {
+        if ($rule_definition['source'] === self::RULE_SOURCE_SQL) {
 
             // коннекта к БД нет: кладем в репозиторий null и продолжаем
             if (is_null(self::$pdo)) {
@@ -296,13 +296,13 @@ class Cache implements CacheInterface
             $message = "Data for `{$rule_name}` fetched from DB,";
         }
 
-        if ($rule_definition['source'] === 'callback') {
+        if ($rule_definition['source'] === self::RULE_SOURCE_CALLBACK) {
             [$actor, $params] = self::compileCallbackHandler($rule_definition['action']);
             $data = call_user_func_array($actor, $params);
             $message = "Data for `{$rule_name}` fetched from callback,";
         }
         
-        if ($rule_definition['source'] === 'raw') {
+        if ($rule_definition['source'] === self::RULE_SOURCE_RAW) {
             $data = $rule_definition['data'];
             $message = "Data for `{$rule_name}` fetched raw data,";
         }
@@ -384,7 +384,11 @@ class Cache implements CacheInterface
             $handler = $actor[0];
             $params = (count($actor) > 1) ? $actor[1] : [];
 
-            //@todo: нужна проверка is_string()
+            //@todo: нужна проверка is_string() - но зачем?
+            if (!is_string($handler)) {
+                throw new CacheCallbackException("First argument of callback array is NOT a string");
+            }
+            
             if (strpos($handler, '@') > 0) {
                 // dynamic class
                 [$class, $method] = explode('@', $handler, 2);
@@ -428,7 +432,7 @@ class Cache implements CacheInterface
             $actor, $params
         ];
 
-    } // detectCallbackHandler
+    } // compileCallbackHandler
 
 }
 

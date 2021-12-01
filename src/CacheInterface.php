@@ -8,6 +8,11 @@ use Psr\Log\LoggerInterface;
 
 interface CacheInterface
 {
+    public const RULE_SOURCE_SQL = 'sql';
+    public const RULE_SOURCE_CALLBACK = 'callback';
+    public const RULE_SOURCE_RAW = 'raw';
+    public const RULE_SOURCE_UNDEFINED = '';
+    
     /**
      *
      * @param array<string, int> $credentials
