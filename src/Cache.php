@@ -8,22 +8,27 @@ use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\RedisClientException;
 use Psr\Log\LoggerInterface;
 
+use function array_key_exists, array_keys, array_walk, is_array;
+use function json_decode, json_encode;
+use function class_exists, method_exists, function_exists, call_user_func_array;
+use function is_null, explode, strpos;
+
 class Cache implements CacheInterface
 {
     /**
-     * @var RedisClient $redis
+     * @var RedisClient $redis_connector
      */
-    private static $redis;
+    private static $redis_connector;
 
     /**
-     * @var bool $is_connected
+     * @var bool $is_redis_connected
      */
-    private static $is_connected = false;
+    public static $is_redis_connected = false;
 
     /**
      * @var LoggerInterface|null $logger
      */
-    private static $logger = null;
+    private static $logger;
 
     /**
      * @var PDO $pdo
@@ -38,7 +43,7 @@ class Cache implements CacheInterface
     public static function init($credentials = [], $rules = [], PDO $PDO = null, LoggerInterface $logger = null)
     {
         self::$logger = $logger;
-        self::$is_connected = false;
+        self::$is_redis_connected = false;
         self::$pdo = $PDO;
 
         $options = [
@@ -54,9 +59,9 @@ class Cache implements CacheInterface
 
         if ($options['enabled']) {
             try {
-                self::$redis = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['database'], $options['password']);
-                self::$redis->connect();
-                self::$is_connected = true;
+                self::$redis_connector = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['database'], $options['password']);
+                self::$redis_connector->connect();
+                self::$is_redis_connected = true;
             } catch (RedisClientException $e){
             }
         }
@@ -70,13 +75,19 @@ class Cache implements CacheInterface
         }
 
     } // init
+    
+    public static function getConnector():RedisClient
+    {
+        return self::$redis_connector;
+    }
 
-    public static function addRule($rule_name, $rule_definition)
+    public static function addRule($rule_name, $rule_definition):string
     {
         $message = self::defineRule($rule_name, $rule_definition);
         if (self::$logger instanceof LoggerInterface) {
             self::$logger->debug($message);
         }
+        return $message;
     }
 
     public static function getAllKeys()
@@ -118,14 +129,113 @@ class Cache implements CacheInterface
         }
     }
 
-    public static function flush($key)
+    public static function flush($key, bool $clean_redis = true)
     {
         self::unset($key);
-        if (self::$redis) {
-            self::$redis->del($key);
+        if (self::$redis_connector && $clean_redis) {
+            self::$redis_connector->del($key);
         }
     }
-
+    
+    public static function redisFetch($key_name, $use_json_decode = true)
+    {
+        if (self::$is_redis_connected === false) {
+            return null;
+        }
+        
+        $value = self::$redis_connector->get($key_name);
+        
+        if ($use_json_decode && !empty($value)) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        
+        return $value;
+    }
+    
+    public static function redisPush($key_name, $data, $ttl = 0):bool
+    {
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+    
+        self::$redis_connector->set($key_name, self::jsonize($data));
+        self::$redis_connector->expire($key_name, $ttl);
+        
+        if (self::$redis_connector->exists($key_name)) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    public static function redisDel($key_name):bool
+    {
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+        self::$redis_connector->del($key_name);
+        
+        return !(self::$redis_connector->exists($key_name));
+    }
+    
+    // работа со счетчиками + добавить в репозиторий!
+    
+    public static function addCounter(string $key, int $initial = 0, $ttl = 0):int
+    {
+        self::set($key, $initial);
+        if (self::$is_redis_connected) {
+            self::$redis_connector->set($key, $initial);
+            self::$redis_connector->expire($key, $ttl);
+            return self::$redis_connector->get($key);
+        }
+        return $initial;
+    }
+    
+    public static function incrCounter(string $key, int $diff = 1):int
+    {
+        if (!array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
+        }
+        
+        if (self::$is_redis_connected) {
+            self::$redis_connector->incrBy($key, $diff);
+        }
+        
+        self::$repository[ $key ] += $diff;
+        return self::$repository[ $key ];
+    }
+    
+    public static function decrCounter(string $key, int $diff = 1):int
+    {
+        if (!array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
+        }
+        
+        if (self::$is_redis_connected) {
+            self::$redis_connector->decrBy($key, $diff);
+        }
+        
+        self::$repository[ $key ] -= $diff;
+        return self::$repository[ $key ];
+    }
+    
+    public static function getCounter(string $key, $default = 0):int
+    {
+        if (self::$is_redis_connected) {
+            return self::$redis_connector->get($key);
+        }
+        return self::get($key, $default);
+    }
+    
+    /* ================================================================================================================= */
+    /* ================================================================================================================= */
+    /* ================================================================================================================= */
+    /* ============================================ PRIVATE METHODS ==================================================== */
+    /* ================================================================================================================= */
+    /* ================================================================================================================= */
+    /* ================================================================================================================= */
+    
+    
     /**
      * Определяет ключ-значение для кэша
      *
@@ -138,17 +248,20 @@ class Cache implements CacheInterface
     {
         $message = '';
 
-        // если редис запущен и ключ присутствует - вытаскиваем значение, кладём в репозиторий и продолжаем
-        if (self::$is_connected && self::$redis->exists($rule_name)) {
-            self::set($rule_name, json_decode(self::$redis->get($rule_name), true, 512, JSON_THROW_ON_ERROR));
-            $message = "Loaded `{$rule_name}` from redis, stored to cache";
-            return $message;
+        if (self::$is_redis_connected) {
+            $rule_value = self::$redis_connector->get($rule_name);
+            
+            if ($rule_value !== false) {
+                self::set($rule_name, json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR));
+                $message = "Loaded `{$rule_name}` from redis, stored to cache";
+                return $message;
+            }
         }
 
         // определяем action и TTL
         $enabled = array_key_exists('enabled', $rule_definition) ? $rule_definition['enabled'] : true;
         $ttl = array_key_exists('ttl', $rule_definition) ? $rule_definition['ttl'] : 0;
-        $action = array_key_exists('action', $rule_definition) ? $rule_definition['action'] : null; // ?? оператор менее нагляден
+        $action = array_key_exists('action', $rule_definition) ? $rule_definition['action'] : null; // оператор `??` менее нагляден, поэтому оставлено так
 
         if ($enabled === false) {
             return "Rule `{$rule_name}` disabled";
@@ -188,16 +301,19 @@ class Cache implements CacheInterface
             $data = call_user_func_array($actor, $params);
             $message = "Data for `{$rule_name}` fetched from callback,";
         }
-
-        //@todo: добавить тип источника 'RAW', в котором `action` не используется, а данные берутся из ключа `data`
-
+        
+        if ($rule_definition['source'] === 'raw') {
+            $data = $rule_definition['data'];
+            $message = "Data for `{$rule_name}` fetched raw data,";
+        }
+        
         // кладем результат в репозиторий
         self::set($rule_name, $data);
 
         // и в редис, если он запущен
-        if (self::$is_connected) {
-            self::$redis->set($rule_name, self::jsonize($data));
-            self::$redis->expire($rule_name, $ttl);
+        if (self::$is_redis_connected) {
+            self::$redis_connector->set($rule_name, self::jsonize($data));
+            self::$redis_connector->expire($rule_name, $ttl);
             $message .= " stored to cache, saved to redis, TTL: {$ttl} seconds";
         } else {
             $message .= " stored to cache, redis disabled";
@@ -205,7 +321,13 @@ class Cache implements CacheInterface
 
         return $message;
     }
-
+    
+    public static function isRedisConnected():bool
+    {
+        return self::$is_redis_connected;
+    }
+    
+   
     /**
      *
      * @param $data
@@ -251,9 +373,10 @@ class Cache implements CacheInterface
             ];
         }
 
-        //@todo: что делать, если инстанс класса уже создан и проинициализирован и лежит в APP::REPO
+        // что делать, если инстанс класса уже создан и проинициализирован и лежит в APP::REPO ?
         // $app->set(Banners::class, new Banners(....) );
         // То есть $handler может быть не строкой, а массивом [ $app->get(Banners::class), 'loadBanners' ]
+        // Ничего не делать :) Вызывать его через коллбэк!
 
         // 0 - имя класса + метода
         // 1 - массив параметров
@@ -306,7 +429,6 @@ class Cache implements CacheInterface
         ];
 
     } // detectCallbackHandler
-
 
 }
 

@@ -272,19 +272,18 @@ class RedisClient
      * @var bool
      */
     protected $subscribed = false;
-
-
+    
+    
     /**
      * Creates a Redisent connection to the Redis server on host {@link $host} and port {@link $port}.
      * $host may also be a path to a unix socket or a string in the form of tcp://[hostname]:[port] or unix://[path]
      *
      * @param string $host The hostname of the Redis server
      * @param integer $port The port number of the Redis server
-     * @param float $timeout Timeout period in seconds
+     * @param float|null $timeout Timeout period in seconds
      * @param string $persistent Flag to establish persistent connection
      * @param int $db The selected datbase of the Redis server
-     * @param string $password The authentication password of the Redis server
-     * @throws RedisClientException
+     * @param string|null $password The authentication password of the Redis server
      */
     public function __construct(string $host = '127.0.0.1', int $port = 6379, float $timeout = null, string $persistent = '', int $db = 0, string $password = null)
     {
@@ -313,7 +312,7 @@ class RedisClient
     /**
      * @return bool
      */
-    public function isSubscribed()
+    public function isSubscribed(): bool
     {
         return $this->subscribed;
     }
@@ -322,7 +321,7 @@ class RedisClient
      * Return the host of the Redis instance
      * @return string
      */
-    public function getHost()
+    public function getHost(): string
     {
         return $this->host;
     }
@@ -331,7 +330,7 @@ class RedisClient
      * Return the port of the Redis instance
      * @return int
      */
-    public function getPort()
+    public function getPort(): int
     {
         return $this->port;
     }
@@ -340,7 +339,7 @@ class RedisClient
      * Return the selected database
      * @return int
      */
-    public function getDatabase()
+    public function getDatabase(): int
     {
         return $this->database;
     }
@@ -348,7 +347,7 @@ class RedisClient
     /**
      * @return string
      */
-    public function getPersistence()
+    public function getPersistence(): string
     {
         return $this->persistent;
     }
@@ -357,7 +356,7 @@ class RedisClient
      * @return RedisClient
      * @throws RedisClientException
      */
-    public function forceStandalone()
+    public function forceStandalone(): RedisClient
     {
         if ($this->standalone) {
             return $this;
@@ -373,7 +372,7 @@ class RedisClient
      * @param int $retries
      * @return RedisClient
      */
-    public function setMaxConnectRetries($retries)
+    public function setMaxConnectRetries($retries): RedisClient
     {
         $this->maxConnectRetries = $retries;
         return $this;
@@ -383,13 +382,13 @@ class RedisClient
      * @param bool $flag
      * @return RedisClient
      */
-    public function setCloseOnDestruct($flag)
+    public function setCloseOnDestruct($flag): RedisClient
     {
         $this->closeOnDestruct = $flag;
         return $this;
     }
 
-    protected function convertHost()
+    protected function convertHost(): void
     {
         if (preg_match('#^(tcp|tls|unix)://(.*)$#', $this->host, $matches)) {
             if ($matches[1] === 'tcp' || $matches[1] === 'tls') {
@@ -422,7 +421,7 @@ class RedisClient
      * @return RedisClient
      * @throws RedisClientException
      */
-    public function connect()
+    public function connect(): RedisClient
     {
         if ($this->connected) {
             return $this;
@@ -488,7 +487,7 @@ class RedisClient
     /**
      * @return bool
      */
-    public function isConnected()
+    public function isConnected(): bool
     {
         return $this->connected;
     }
@@ -501,7 +500,7 @@ class RedisClient
      * @return RedisClient
      * @throws RedisClientException
      */
-    public function setReadTimeout($timeout)
+    public function setReadTimeout($timeout): RedisClient
     {
         if ($timeout < -1) {
             throw new RedisClientException('Timeout values less than -1 are not accepted.');
@@ -525,7 +524,7 @@ class RedisClient
     /**
      * @return bool
      */
-    public function close($force = FALSE)
+    public function close($force = FALSE): bool
     {
         $result = TRUE;
         if ($this->redis && ($force || ($this->connected && !$this->persistent))) {
@@ -556,7 +555,7 @@ class RedisClient
      * @param string|null $alias
      * @return $this
      */
-    public function renameCommand($command, $alias = NULL)
+    public function renameCommand($command, $alias = NULL): RedisClient
     {
         if (!$this->standalone) {
             $this->forceStandalone();
@@ -576,7 +575,7 @@ class RedisClient
      * @param $command
      * @return string
      */
-    public function getRenamedCommand($command)
+    public function getRenamedCommand($command): string
     {
         static $map;
 
@@ -636,7 +635,7 @@ class RedisClient
      * @param string|array $pattern
      * @return array
      */
-    public function pUnsubscribe()
+    public function pUnsubscribe(): array
     {
         list($command, $channel, $subscribedChannels) = $this->__call('punsubscribe', func_get_args());
         $this->subscribed = $subscribedChannels > 0;
@@ -726,7 +725,7 @@ class RedisClient
      * @param string|array $pattern
      * @return array
      */
-    public function unsubscribe()
+    public function unsubscribe(): array
     {
         list($command, $channel, $subscribedChannels) = $this->__call('unsubscribe', func_get_args());
         $this->subscribed = $subscribedChannels > 0;
@@ -1198,7 +1197,7 @@ class RedisClient
         return $response;
     }
 
-    protected function write_command($command)
+    protected function write_command($command): void
     {
         // Reconnect on lost connection (Redis server "timeout" exceeded since last command)
         if ( feof($this->redis) ) {
@@ -1390,16 +1389,16 @@ class RedisClient
      * @param array $args
      * @return string
      */
-    private static function _prepare_command($args)
+    private static function _prepare_command($args): string
     {
         return sprintf('*%d%s%s%s', count($args), CRLF, implode(CRLF, array_map(array('self', '_map'), $args)), CRLF);
     }
 
-    private static function _map($arg)
+    private static function _map($arg): string
     {
         return sprintf('$%d%s%s', strlen($arg), CRLF, $arg);
     }
-
+    
     /**
      * Flatten arguments
      *
@@ -1408,10 +1407,11 @@ class RedisClient
      * becomes
      *  array('zrangebyscore', '-inf', 123, 'limit', '0', '1')
      *
-     * @param array $in
+     * @param array $arguments
+     * @param array $out
      * @return array
      */
-    private static function _flattenArguments(array $arguments, &$out = array())
+    private static function _flattenArguments(array $arguments, &$out = array()): array
     {
         foreach ($arguments as $key => $arg) {
             if (!is_int($key)) {
