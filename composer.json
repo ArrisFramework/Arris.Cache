@@ -19,7 +19,8 @@
         "ext-pdo": "*",
         "ext-json": "*",
         "ext-redis": "*",
-        "psr/log": "^1.1"
+        "psr/log": "^1.1",
+        "ext-mbstring": "*"
     },
     "require-dev": {
         "karelwintersky/arris": "^1.63.0",

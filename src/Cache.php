@@ -4,6 +4,7 @@ namespace Arris\Cache;
 
 use JsonException;
 use PDO;
+use Arris\Cache\Interfaces\CacheInterface;
 use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\RedisClientException;
 use Psr\Log\LoggerInterface;
@@ -40,7 +41,7 @@ class Cache implements CacheInterface
      */
     public static $repository = [];
 
-    public static function init($credentials = [], $rules = [], PDO $PDO = null, LoggerInterface $logger = null)
+    public static function init(array $credentials = [], array $rules = [], PDO $PDO = null, LoggerInterface $logger = null)
     {
         self::$logger = $logger;
         self::$is_redis_connected = false;
@@ -48,12 +49,12 @@ class Cache implements CacheInterface
 
         $options = [
             'enabled'   =>  false,
-            'host'      =>  '127.0.0.1',
-            'port'      =>  6379,
+            'host'      =>  self::REDIS_DEFAULT_HOST,
+            'port'      =>  self::REDIS_DEFAULT_PORT,
             'timeout'   =>  null,
             'persistent'=>  '',
-            'database'  =>  0,
-            'password'  =>  null
+            'database'  =>  self::REDIS_DEFAULT_DB,
+            'password'  =>  self::REDIS_DEFAULT_PASSWORD
         ];
         $options = self::overrideDefaults($options, $credentials);
 
@@ -81,7 +82,7 @@ class Cache implements CacheInterface
         return self::$redis_connector;
     }
 
-    public static function addRule($rule_name, $rule_definition):string
+    public static function addRule(string $rule_name, $rule_definition):string
     {
         $message = self::defineRule($rule_name, $rule_definition);
         if (self::$logger instanceof LoggerInterface) {
@@ -90,12 +91,12 @@ class Cache implements CacheInterface
         return $message;
     }
 
-    public static function getAllKeys()
+    public static function getAllKeys():array
     {
         return array_keys(self::$repository);
     }
 
-    public static function get($key, $default = null)
+    public static function get(string $key, $default = null)
     {
         if (self::check($key)) {
             self::$logger->debug("Recieved `{$key}` from cache");
@@ -104,32 +105,32 @@ class Cache implements CacheInterface
         return $default;
     }
 
-    public static function set($key, $data)
+    public static function set(string $key, $data)
     {
         self::unset($key);
         self::$repository[ $key ] = $data;
     }
 
-    public static function check($key)
+    public static function check(string $key)
     {
         return array_key_exists($key, self::$repository);
     }
 
-    public static function unset($key)
+    public static function unset(string $key)
     {
         if (self::check($key)) {
             unset( self::$repository[$key]);
         }
     }
 
-    public static function flushAll()
+    public static function flushAll(string $mask = '*')
     {
         foreach (self::$repository as $key => $v) {
             self::flush($key);
         }
     }
 
-    public static function flush($key, bool $clean_redis = true)
+    public static function flush(string $key, bool $clean_redis = true)
     {
         self::unset($key);
         if (self::$redis_connector && $clean_redis) {
@@ -137,7 +138,7 @@ class Cache implements CacheInterface
         }
     }
     
-    public static function redisFetch($key_name, $use_json_decode = true)
+    public static function redisFetch(string $key_name, $use_json_decode = true)
     {
         if (self::$is_redis_connected === false) {
             return null;
@@ -152,7 +153,7 @@ class Cache implements CacheInterface
         return $value;
     }
     
-    public static function redisPush($key_name, $data, $ttl = 0):bool
+    public static function redisPush(string $key_name, $data, $ttl = 0):bool
     {
         if (self::$is_redis_connected === false) {
             return false;
@@ -168,7 +169,7 @@ class Cache implements CacheInterface
         return false;
     }
     
-    public static function redisDel($key_name):bool
+    public static function redisDel(string $key_name):bool
     {
         if (self::$is_redis_connected === false) {
             return false;

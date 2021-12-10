@@ -1,6 +1,6 @@
 <?php
 
-namespace Arris\Cache;
+namespace Arris\Cache\Interfaces;
 
 use JsonException;
 use PDO;
@@ -13,6 +13,20 @@ interface CacheInterface
     public const RULE_SOURCE_RAW = 'raw';
     public const RULE_SOURCE_UNDEFINED = '';
     
+    public const TIME_SECOND    = 1;
+    public const TIME_MINUTE    = self::TIME_SECOND * 60;
+    public const TIME_HOUR      = self::TIME_MINUTE * 60;
+    public const TIME_DAY       = self::TIME_HOUR * 12;
+    
+    public const TIME_FULL_DAY  = self::TIME_HOUR * 24;
+    public const TIME_MONTH     = self::TIME_FULL_DAY * 30;
+    public const TIME_YEAR      = self::TIME_MONTH * 12;
+    
+    public const REDIS_DEFAULT_HOST     = '127.0.0.1';
+    public const REDIS_DEFAULT_PORT     = 6379;
+    public const REDIS_DEFAULT_DB       = 0;
+    public const REDIS_DEFAULT_PASSWORD = null;
+    
     /**
      *
      * @param array<string, int> $credentials
@@ -21,7 +35,7 @@ interface CacheInterface
      * @param LoggerInterface|null $logger
      * @throws JsonException
      */
-    public static function init($credentials = [], $rules = [], PDO $PDO = null, LoggerInterface $logger = null);
+    public static function init(array $credentials = [], array $rules = [], PDO $PDO = null, LoggerInterface $logger = null);
 
     /**
      * Добавляет в репозиторий новое ключ-значение (с логгированием)
@@ -31,7 +45,7 @@ interface CacheInterface
      * @return string
      * @throws JsonException
      */
-    public static function addRule($rule_name, $rule_definition):string;
+    public static function addRule(string $rule_name, $rule_definition):string;
 
     /**
      * Получает список ключей из репозитория кэша
@@ -39,7 +53,7 @@ interface CacheInterface
      *
      * @return array
      */
-    public static function getAllKeys();
+    public static function getAllKeys(): array;
 
     /**
      * Получает значение из репозитория
@@ -48,7 +62,7 @@ interface CacheInterface
      * @param null $default
      * @return mixed|null
      */
-    public static function get($key, $default = null);
+    public static function get(string $key, $default = null);
 
     /**
      * Добавляет значение в репозиторий, удаляя старое
@@ -56,7 +70,7 @@ interface CacheInterface
      * @param $key
      * @param $data
      */
-    public static function set($key, $data);
+    public static function set(string $key, $data);
 
     /**
      * Проверяет наличие ключа в репозитории
@@ -64,14 +78,14 @@ interface CacheInterface
      * @param $key
      * @return bool
      */
-    public static function check($key);
+    public static function check(string $key);
 
     /**
      * Удаляет ключ из репозитория
      *
      * @param $key
      */
-    public static function unset($key);
+    public static function unset(string $key);
     
     /**
      * Удаляет ключ из репозитория и редиса
@@ -79,12 +93,12 @@ interface CacheInterface
      * @param $key
      * @param bool $clean_redis
      */
-    public static function flush($key, bool $clean_redis = true);
+    public static function flush(string $key, bool $clean_redis = true);
 
     /**
      * Удаляет все ключи из репозитория и редиса
      */
-    public static function flushAll();
+    public static function flushAll(string $mask = '*');
     
     /**
      * Возвращает статус подключения к редису.
@@ -111,7 +125,7 @@ interface CacheInterface
      * @throws JsonException
      * @return mixed
      */
-    public static function redisFetch($key_name, $use_json_decode = true);
+    public static function redisFetch(string $key_name, $use_json_decode = true);
     
     /**
      * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
@@ -124,7 +138,7 @@ interface CacheInterface
      * @return bool
      * @throws JsonException
      */
-    public static function redisPush($key_name, $data, $ttl = 0):bool;
+    public static function redisPush(string $key_name, $data, $ttl = 0):bool;
     
     /**
      * Удаляет данные в редисе по ключу
@@ -132,7 +146,7 @@ interface CacheInterface
      * @param $key_name
      * @return bool
      */
-    public static function redisDel($key_name):bool;
+    public static function redisDel(string $key_name):bool;
     
     /**
      * Добавляет счетчик (целое число) в кэш и редис (если подключен)
