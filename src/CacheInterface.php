@@ -1,6 +1,6 @@
 <?php
 
-namespace Arris\Cache\Interfaces;
+namespace Arris\Cache;
 
 use JsonException;
 use PDO;

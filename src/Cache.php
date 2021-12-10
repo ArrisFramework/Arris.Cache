@@ -4,7 +4,6 @@ namespace Arris\Cache;
 
 use JsonException;
 use PDO;
-use Arris\Cache\Interfaces\CacheInterface;
 use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\RedisClientException;
 use Psr\Log\LoggerInterface;
