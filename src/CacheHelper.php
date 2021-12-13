@@ -35,4 +35,68 @@ class CacheHelper
         }
     }
     
+    /**
+     * Ищет в массиве $array подмассив, ключ $key которого == $value
+     * Бывший Arr::array_filter_subject
+     *
+     * @param array $array
+     * @param string $key
+     * @param string $value
+     * @param bool $strict -- использовать ли строгое сравнение?
+     * @return array|null
+     */
+    public static function searchHashAsKeyValue(array $array, string $key, string $value, bool $strict = false)
+    {
+        if (empty($array)) {
+            return null;
+        }
+        if ($strict) {
+            $r = array_filter($array, static function($sub) use ($value, $key) {
+                return $sub[$key] === $value;
+            });
+        } else {
+            $r = array_filter($array, static function($sub) use ($value, $key) {
+                return $sub[$key] == $value;
+            });
+        }
+        
+        if (!empty($r)) {
+            return array_pop($r);
+        }
+        return null;
+    }
+    
+    /**
+     * Сортирует двумерный массив по ключу подмассива
+     *
+     * @param array $dataset
+     * @param string $order_by
+     * @param bool $strict
+     * @return array
+     */
+    public static function sortHashBySubkey(array $dataset, string $order_by, bool $strict = false):array
+    {
+        usort($dataset, static function ($left, $right) use ($order_by, $strict){
+            if (!isset($left[$order_by], $right[$order_by])) {
+                return 0;
+            }
+            
+            if ($strict) {
+                if ($left[$order_by] === $right[$order_by]) {
+                    return 0;
+                }
+            } else {
+                if ($left[$order_by] == $right[$order_by]) {
+                    return 0;
+                }
+            }
+            
+            if ($left[$order_by] == $right[$order_by]) {
+                return 0;
+            }
+            return ($left[$order_by] < $right[$order_by]) ? -1 : 1;
+        });
+        return $dataset;
+    }
+    
 }
