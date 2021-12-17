@@ -91,12 +91,11 @@ class CacheHelper
                 }
             }
             
-            if ($left[$order_by] == $right[$order_by]) {
-                return 0;
-            }
             return ($left[$order_by] < $right[$order_by]) ? -1 : 1;
         });
         return $dataset;
     }
+    
+
     
 }
