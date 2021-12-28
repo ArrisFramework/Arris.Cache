@@ -89,11 +89,15 @@ interface CacheInterface
     
     /**
      * Удаляет ключ из репозитория и редиса
+     * Допустимо указание маски в ключе:
+     * `ar*`, `ar*[*`, `ar*\[*` и даже `*ore*`
+     * Маска `*` означает, очевидно, все ключи.
      *
-     * @param $key
+     * @param string $key
      * @param bool $clean_redis
+     * @return string
      */
-    public static function flush(string $key, bool $clean_redis = true);
+    public static function flush(string $key, bool $clean_redis = true):string;
 
     /**
      * Удаляет все ключи из репозитория и редиса

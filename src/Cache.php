@@ -129,11 +129,21 @@ class Cache implements CacheInterface
         }
     }
 
-    public static function flush(string $key, bool $clean_redis = true)
+    public static function flush(string $key, bool $clean_redis = true):string
     {
-        self::unset($key);
-        if (self::$redis_connector && $clean_redis) {
-            self::$redis_connector->del($key);
+        if (strpos($key, '*') === false) {
+            self::unset($key);
+            if (self::$redis_connector && $clean_redis) {
+                self::$redis_connector->del($key);
+            }
+            return $key;
+        } else {
+            $custom_mask = self::createMask($key);
+            $custom_list = preg_grep($custom_mask, self::getAllKeys());
+            foreach ($custom_list as $k) {
+                self::flush($k, $clean_redis);
+            }
+            return $custom_mask;
         }
     }
     
@@ -433,6 +443,25 @@ class Cache implements CacheInterface
         ];
 
     } // compileCallbackHandler
+    
+    /**
+     *
+     *
+     * @param $mask
+     * @return string
+     */
+    private static function createMask($mask)
+    {
+        $mask = str_replace('**', '*', $mask);
+        $mask = str_replace("\\", '\\\\', $mask); // должно быть первым
+        $mask = str_replace('/', '\/', $mask);
+        $mask = str_replace('.', '\.', $mask);
+        $mask = str_replace('*', '.*', $mask);
+        $mask = str_replace('[', '\[', $mask);
+        $mask = str_replace(']', '\]', $mask);
+        
+        return '/^' . $mask . '/m';
+    }
 
 }
 

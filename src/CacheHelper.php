@@ -69,6 +69,8 @@ class CacheHelper
     /**
      * Сортирует двумерный массив по ключу подмассива
      *
+     * @todo: требуется тестирование потому что, похоже, не работает
+     *
      * @param array $dataset
      * @param string $order_by
      * @param bool $strict
@@ -94,6 +96,19 @@ class CacheHelper
             return ($left[$order_by] < $right[$order_by]) ? -1 : 1;
         });
         return $dataset;
+    }
+    
+    /**
+     * Устанавливает флаг
+     *
+     * @param string $flag
+     * @param int $value
+     * @param int $ttl
+     * @throws \JsonException
+     */
+    public static function raiseFlag(string $flag, int $value = 1, $ttl = 86400)
+    {
+        Cache::redisPush($flag, $value, $ttl);
     }
     
 
