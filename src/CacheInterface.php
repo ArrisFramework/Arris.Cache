@@ -134,6 +134,8 @@ interface CacheInterface
     /**
      * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
      *
+     * Если TTL 0 - ключ не истекает
+     *
      * Возвращает TRUE если удалось, FALSE - если редис отключен или данные в редисе "не оказались"
      *
      * @param $key_name
@@ -142,24 +144,30 @@ interface CacheInterface
      * @return bool
      * @throws JsonException
      */
-    public static function redisPush(string $key_name, $data, $ttl = 0):bool;
+    public static function redisPush(string $key_name, $data, int $ttl = 0):bool;
     
     /**
      * Удаляет данные в редисе по ключу
      *
-     * @param $key_name
-     * @return bool
+     * Допустимо удаление по маске
+     *
+     * Возвращает список ключей, которые попытались удалить
+     *
+     * @param string $key_name
+     * @return array|string
      */
-    public static function redisDel(string $key_name):bool;
+    public static function redisDel(string $key_name);
     
     /**
      * Добавляет счетчик (целое число) в кэш и редис (если подключен)
+     * Если TTL 0 - ключ не истекает
      *
-     * @param $key
+     * @param string $key
      * @param int $initial
+     * @param int $ttl
      * @return int
      */
-    public static function addCounter(string $key, int $initial = 0):int;
+    public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int;
     
     /**
      * Увеличивает счетчик в кэше и редисе (если подключен)

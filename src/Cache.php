@@ -162,14 +162,17 @@ class Cache implements CacheInterface
         return $value;
     }
     
-    public static function redisPush(string $key_name, $data, $ttl = 0):bool
+    public static function redisPush(string $key_name, $data, int $ttl = 0):bool
     {
         if (self::$is_redis_connected === false) {
             return false;
         }
     
         self::$redis_connector->set($key_name, self::jsonize($data));
-        self::$redis_connector->expire($key_name, $ttl);
+        
+        if ($ttl > 0) {
+            self::$redis_connector->expire($key_name, $ttl);
+        }
         
         if (self::$redis_connector->exists($key_name)) {
             return true;
@@ -178,24 +181,42 @@ class Cache implements CacheInterface
         return false;
     }
     
-    public static function redisDel(string $key_name):bool
+    public static function redisDel(string $key_name)
     {
         if (self::$is_redis_connected === false) {
             return false;
         }
-        self::$redis_connector->del($key_name);
         
-        return !(self::$redis_connector->exists($key_name));
+        $deleted = [];
+    
+        if (strpos($key_name, '*') === false) {
+            self::$redis_connector->del($key_name);
+            return $key_name;
+        } else {
+            $custom_mask = self::createMask($key_name);
+            $custom_list = preg_grep($custom_mask, self::$redis_connector->keys('*'));
+            // $custom_list = self::$redis_connector->keys($key_name);
+            
+            foreach ($custom_list as $k) {
+                $deleted[] = self::redisDel($k);
+            }
+            return $deleted;
+        }
+        // return !(self::$redis_connector->exists($key_name));
     }
     
     // работа со счетчиками + добавить в репозиторий!
     
-    public static function addCounter(string $key, int $initial = 0, $ttl = 0):int
+    public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int
     {
         self::set($key, $initial);
         if (self::$is_redis_connected) {
             self::$redis_connector->set($key, $initial);
-            self::$redis_connector->expire($key, $ttl);
+            
+            if ($ttl > 0) {
+                self::$redis_connector->expire($key, $ttl);
+            }
+            
             return self::$redis_connector->get($key);
         }
         return $initial;
@@ -323,7 +344,9 @@ class Cache implements CacheInterface
         // и в редис, если он запущен
         if (self::$is_redis_connected) {
             self::$redis_connector->set($rule_name, self::jsonize($data));
-            self::$redis_connector->expire($rule_name, $ttl);
+            if ($ttl > 0) {
+                self::$redis_connector->expire($rule_name, $ttl);
+            }
             $message .= " stored to cache, saved to redis, TTL: {$ttl} seconds";
         } else {
             $message .= " stored to cache, redis disabled";
@@ -445,8 +468,6 @@ class Cache implements CacheInterface
     } // compileCallbackHandler
     
     /**
-     *
-     *
      * @param $mask
      * @return string
      */
