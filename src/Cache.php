@@ -205,6 +205,21 @@ class Cache implements CacheInterface
         // return !(self::$redis_connector->exists($key_name));
     }
     
+    /**
+     * Проверяет существование ключа в редисе
+     *
+     * @param string $keyname
+     * @return bool
+     */
+    public static function redisCheck(string $keyname):bool
+    {
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+        
+        return self::$redis_connector->exists($keyname);
+    }
+    
     // работа со счетчиками + добавить в репозиторий!
     
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int

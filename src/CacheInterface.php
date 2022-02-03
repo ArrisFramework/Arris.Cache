@@ -159,6 +159,14 @@ interface CacheInterface
     public static function redisDel(string $key_name);
     
     /**
+     * Проверяет существование ключа в редисе
+     *
+     * @param string $keyname
+     * @return bool
+     */
+    public static function redisCheck(string $keyname):bool;
+    
+    /**
      * Добавляет счетчик (целое число) в кэш и редис (если подключен)
      * Если TTL 0 - ключ не истекает
      *
