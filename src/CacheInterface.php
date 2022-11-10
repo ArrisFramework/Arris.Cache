@@ -31,16 +31,16 @@ interface CacheInterface
      *
      * @param array<string, int> $credentials
      * @param array<array> $rules
-     * @param PDO|null $PDO
+     * @param $PDO
      * @param LoggerInterface|null $logger
      * @throws JsonException
      */
-    public static function init(array $credentials = [], array $rules = [], PDO $PDO = null, LoggerInterface $logger = null);
+    public static function init(array $credentials = [], array $rules = [], $PDO = null, LoggerInterface $logger = null);
 
     /**
      * Добавляет в репозиторий новое ключ-значение (с логгированием)
      *
-     * @param $rule_name
+     * @param string $rule_name
      * @param $rule_definition
      * @return string
      * @throws JsonException
@@ -51,9 +51,10 @@ interface CacheInterface
      * Получает список ключей из репозитория кэша
      * (имён ключей)
      *
+     * @param bool $use_keys_from_redis
      * @return array
      */
-    public static function getAllKeys(): array;
+    public static function getAllKeys(bool $use_keys_from_redis): array;
 
     /**
      * Получает значение из репозитория
@@ -67,7 +68,7 @@ interface CacheInterface
     /**
      * Добавляет значение в репозиторий, удаляя старое
      *
-     * @param $key
+     * @param string $key
      * @param $data
      */
     public static function set(string $key, $data);
@@ -75,15 +76,15 @@ interface CacheInterface
     /**
      * Проверяет наличие ключа в репозитории
      *
-     * @param $key
+     * @param string $key
      * @return bool
      */
-    public static function check(string $key);
+    public static function check(string $key): bool;
 
     /**
      * Удаляет ключ из репозитория
      *
-     * @param $key
+     * @param string $key
      */
     public static function unset(string $key);
     
@@ -120,17 +121,17 @@ interface CacheInterface
      * @return RedisClient|false
      */
     public static function getConnector():RedisClient;
-    
+
     /**
      * Извлекает данные из редиса по ключу. Если передан второй аргумент false - не проводит json_decode
      *
-     * @param $key_name
+     * @param string $key_name
      * @param bool $use_json_decode
-     * @throws JsonException
      * @return mixed
+     * @throws JsonException
      */
-    public static function redisFetch(string $key_name, $use_json_decode = true);
-    
+    public static function redisFetch(string $key_name, bool $use_json_decode = true);
+
     /**
      * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
      *
@@ -138,7 +139,7 @@ interface CacheInterface
      *
      * Возвращает TRUE если удалось, FALSE - если редис отключен или данные в редисе "не оказались"
      *
-     * @param $key_name
+     * @param string $key_name
      * @param $data
      * @param int $ttl
      * @return bool
@@ -154,7 +155,7 @@ interface CacheInterface
      * Возвращает список ключей, которые попытались удалить
      *
      * @param string $key_name
-     * @return array|string
+     * @return array|bool
      */
     public static function redisDel(string $key_name);
     
@@ -176,20 +177,20 @@ interface CacheInterface
      * @return int
      */
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int;
-    
+
     /**
      * Увеличивает счетчик в кэше и редисе (если подключен)
      *
-     * @param $key
+     * @param string $key
      * @param int $diff
      * @return int
      */
     public static function incrCounter(string $key, int $diff = 1):int;
-    
+
     /**
      * Уменьшает счетчик в кэше и редисе (если подключен)
      *
-     * @param $key
+     * @param string $key
      * @param int $diff
      * @return int
      */
@@ -202,5 +203,7 @@ interface CacheInterface
      * @param int $default
      * @return int
      */
-    public static function getCounter(string $key, $default = 0):int;
+    public static function getCounter(string $key, int $default = 0):int;
+
+
 }

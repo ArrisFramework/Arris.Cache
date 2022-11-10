@@ -8,6 +8,7 @@ use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\RedisClientException;
 use Psr\Log\LoggerInterface;
 
+use Psr\Log\NullLogger;
 use function array_key_exists, array_keys, array_walk, is_array;
 use function json_decode, json_encode;
 use function class_exists, method_exists, function_exists, call_user_func_array;
@@ -31,18 +32,25 @@ class Cache implements CacheInterface
     private static $logger;
 
     /**
-     * @var PDO $pdo
+     * @var PDO|null $pdo
      */
     private static $pdo;
 
     /**
      * @var array
      */
+    /*private static $connection_options = [];*/
+
+    /*private static $connectors = [];*/
+
+    /**
+     * @var array
+     */
     public static $repository = [];
 
-    public static function init(array $credentials = [], array $rules = [], PDO $PDO = null, LoggerInterface $logger = null)
+    public static function init(array $credentials = [], array $rules = [], $PDO = null, LoggerInterface $logger = null)
     {
-        self::$logger = $logger;
+        self::$logger = is_null($logger) ? new NullLogger() : $logger;
         self::$is_redis_connected = false;
         self::$pdo = $PDO;
 
@@ -55,7 +63,7 @@ class Cache implements CacheInterface
             'database'  =>  self::REDIS_DEFAULT_DB,
             'password'  =>  self::REDIS_DEFAULT_PASSWORD
         ];
-        $options = self::overrideDefaults($options, $credentials);
+        /*self::$connection_options = */$options = self::overrideDefaults($options, $credentials);
 
         if ($options['enabled']) {
             try {
@@ -69,6 +77,7 @@ class Cache implements CacheInterface
         // теперь перебираем $rules
         foreach ($rules as $rule_name => $rule_definition) {
             $message = self::defineRule($rule_name, $rule_definition);
+
             if ($logger instanceof LoggerInterface) {
                 $logger->debug($message);
             }
@@ -81,6 +90,20 @@ class Cache implements CacheInterface
         return self::$redis_connector;
     }
 
+    /*public static function switchDatabase($database):RedisClient
+    {
+        $options = self::$connection_options;
+
+        if ($options['database'] !== $database) {
+            $connector = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $database, $options['password']);
+            $connector->connect();
+        } else {
+            $connector = self::$redis_connector;
+        }
+
+        return $connector;
+    }*/
+
     public static function addRule(string $rule_name, $rule_definition):string
     {
         $message = self::defineRule($rule_name, $rule_definition);
@@ -90,15 +113,45 @@ class Cache implements CacheInterface
         return $message;
     }
 
-    public static function getAllKeys():array
+    public static function getAllLocalKeys():array
     {
         return array_keys(self::$repository);
+    }
+
+    public static function getAllRedisKeys():array
+    {
+        if (!self::$is_redis_connected) {
+            self::$logger->debug("[getAllRedisKeys] Redis not connected");
+            return [];
+        }
+
+        $keys = self::$redis_connector->keys('*');
+        $keys_count = count($keys);
+
+        self::$logger->debug("[getAllRedisKeys] Returned {$keys_count} key(s)");
+
+        return $keys;
+    }
+
+    public static function getAllKeys(bool $use_keys_from_redis):array
+    {
+        if (!self::$is_redis_connected) {
+            self::$logger->debug("[getAllKeys] Redis not connected");
+            return [];
+        }
+
+        $keys = $use_keys_from_redis ? self::$redis_connector->keys('*') : array_keys(self::$repository);
+        $keys_count = count($keys);
+
+        self::$logger->debug("[getAllKeys] Returned {$keys_count} key(s)");
+
+        return $keys;
     }
 
     public static function get(string $key, $default = null)
     {
         if (self::check($key)) {
-            self::$logger->debug("Recieved `{$key}` from cache");
+            self::$logger->debug("Received `{$key}` from cache");
             return self::$repository[ $key ];
         }
         return $default;
@@ -110,7 +163,7 @@ class Cache implements CacheInterface
         self::$repository[ $key ] = $data;
     }
 
-    public static function check(string $key)
+    public static function check(string $key): bool
     {
         return array_key_exists($key, self::$repository);
     }
@@ -139,7 +192,8 @@ class Cache implements CacheInterface
             return $key;
         } else {
             $custom_mask = self::createMask($key);
-            $custom_list = preg_grep($custom_mask, self::getAllKeys());
+            $all_keys = $clean_redis ? self::getAllRedisKeys() : self::getAllLocalKeys();
+            $custom_list = preg_grep($custom_mask, $all_keys);
             foreach ($custom_list as $k) {
                 self::flush($k, $clean_redis);
             }
@@ -147,7 +201,7 @@ class Cache implements CacheInterface
         }
     }
     
-    public static function redisFetch(string $key_name, $use_json_decode = true)
+    public static function redisFetch(string $key_name, bool $use_json_decode = true)
     {
         if (self::$is_redis_connected === false) {
             return null;
@@ -168,7 +222,7 @@ class Cache implements CacheInterface
             return false;
         }
     
-        self::$redis_connector->set($key_name, self::jsonize($data));
+        self::$redis_connector->set($key_name, CacheHelper::jsonize($data));
         
         if ($ttl > 0) {
             self::$redis_connector->expire($key_name, $ttl);
@@ -188,20 +242,24 @@ class Cache implements CacheInterface
         }
         
         $deleted = [];
-    
-        if (strpos($key_name, '*') === false) {
+
+        if ($key_name === '*') {
+            self::$redis_connector->flushDb();
+            $deleted = [ '*' ];
+        } elseif (strpos($key_name, '*') === false) {
             self::$redis_connector->del($key_name);
-            return $key_name;
+            $deleted = [ $key_name ];
         } else {
             $custom_mask = self::createMask($key_name);
             $custom_list = preg_grep($custom_mask, self::$redis_connector->keys('*'));
-            // $custom_list = self::$redis_connector->keys($key_name);
-            
+
             foreach ($custom_list as $k) {
                 $deleted[] = self::redisDel($k);
             }
-            return $deleted;
+
         }
+        return $deleted;
+
         // return !(self::$redis_connector->exists($key_name));
     }
     
@@ -265,7 +323,7 @@ class Cache implements CacheInterface
         return self::$repository[ $key ];
     }
     
-    public static function getCounter(string $key, $default = 0):int
+    public static function getCounter(string $key, int $default = 0):int
     {
         if (self::$is_redis_connected) {
             return self::$redis_connector->get($key);
@@ -299,8 +357,7 @@ class Cache implements CacheInterface
             
             if ($rule_value !== false) {
                 self::set($rule_name, json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR));
-                $message = "Loaded `{$rule_name}` from redis, stored to cache";
-                return $message;
+                return "[INFO] Loaded `{$rule_name}` from redis, stored to cache";
             }
         }
 
@@ -315,50 +372,51 @@ class Cache implements CacheInterface
 
         // если ACTION пуст - кладем в репозиторий NULL и продолжаем
         if (empty($action)) {
-            $message = '[ERROR] Key not found, but action is empty';
+            $message = "[ERROR] Key found, but action is empty";
             self::set($rule_name, null);
             return $message;
         }
 
-        $data = '';
+        switch ($rule_definition['source']) {
+            case self::RULE_SOURCE_SQL: {
+                // коннекта к БД нет: кладем в репозиторий null и продолжаем
+                if (is_null(self::$pdo)) {
+                    $message = '[ERROR] Key not found, PDO not defined';
+                    self::set($rule_name, null);
+                    return $message;
+                }
 
-        // если источник данных SQL
-        if ($rule_definition['source'] === self::RULE_SOURCE_SQL) {
+                $sth = self::$pdo->query($rule_definition['action']);
+                if (false === $sth) {
+                    $message = '[ERROR] Key not found, PDO present, PDO Answer invalid';
+                    self::set($rule_name, null);
+                    return $message;
+                }
+                $data = $sth->fetchAll();
+                $message = "Data for `{$rule_name}` fetched from DB,";
 
-            // коннекта к БД нет: кладем в репозиторий null и продолжаем
-            if (is_null(self::$pdo)) {
-                $message = '[ERROR] Key not found, PDO not defined';
-                self::set($rule_name, null);
-                return $message;
+                break;
             }
+            case self::RULE_SOURCE_RAW: {
+                $data = $rule_definition['data'];
+                $message = "Data for `{$rule_name}` fetched raw data,";
 
-            $sth = self::$pdo->query($rule_definition['action']);
-            if (false === $sth) {
-                $message = '[ERROR] Key not found, PDO present, PDO Answer invalid';
-                self::set($rule_definition, null);
-                return $message;
+                break;
             }
-            $data = $sth->fetchAll();
-            $message = "Data for `{$rule_name}` fetched from DB,";
+            // case self::RULE_SOURCE_CALLBACK
+            default: {
+                [$actor, $params] = self::compileCallbackHandler($rule_definition['action']);
+                $data = call_user_func_array($actor, $params);
+                $message = "Data for `{$rule_name}` fetched from callback,";
+            }
         }
 
-        if ($rule_definition['source'] === self::RULE_SOURCE_CALLBACK) {
-            [$actor, $params] = self::compileCallbackHandler($rule_definition['action']);
-            $data = call_user_func_array($actor, $params);
-            $message = "Data for `{$rule_name}` fetched from callback,";
-        }
-        
-        if ($rule_definition['source'] === self::RULE_SOURCE_RAW) {
-            $data = $rule_definition['data'];
-            $message = "Data for `{$rule_name}` fetched raw data,";
-        }
-        
         // кладем результат в репозиторий
         self::set($rule_name, $data);
 
         // и в редис, если он запущен
         if (self::$is_redis_connected) {
-            self::$redis_connector->set($rule_name, self::jsonize($data));
+            self::$redis_connector->set($rule_name, CacheHelper::jsonize($data));
             if ($ttl > 0) {
                 self::$redis_connector->expire($rule_name, $ttl);
             }
@@ -373,18 +431,6 @@ class Cache implements CacheInterface
     public static function isRedisConnected():bool
     {
         return self::$is_redis_connected;
-    }
-    
-   
-    /**
-     *
-     * @param $data
-     * @return false|string
-     * @throws JsonException
-     */
-    private static function jsonize($data)
-    {
-        return json_encode($data, JSON_NUMERIC_CHECK | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -432,7 +478,6 @@ class Cache implements CacheInterface
             $handler = $actor[0];
             $params = (count($actor) > 1) ? $actor[1] : [];
 
-            //@todo: нужна проверка is_string() - но зачем?
             if (!is_string($handler)) {
                 throw new CacheCallbackException("First argument of callback array is NOT a string");
             }

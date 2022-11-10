@@ -2,6 +2,7 @@
 
 namespace Arris\Cache;
 
+use JsonException;
 use function mb_strpos;
 use function array_filter;
 
@@ -104,13 +105,23 @@ class CacheHelper
      * @param string $flag
      * @param int $value
      * @param int $ttl
-     * @throws \JsonException
+     * @throws JsonException
      */
     public static function raiseFlag(string $flag, int $value = 1, $ttl = 86400)
     {
         Cache::redisPush($flag, $value, $ttl);
     }
-    
 
-    
+    /**
+     * Конвертирует в JSON
+     *
+     * @param $data
+     * @return false|string
+     * @throws JsonException
+     */
+    public static function jsonize($data)
+    {
+        return json_encode($data, JSON_NUMERIC_CHECK | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+    }
+
 }

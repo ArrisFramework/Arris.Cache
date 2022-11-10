@@ -275,14 +275,14 @@ class RedisClient
     
     
     /**
-     * Creates a Redisent connection to the Redis server on host {@link $host} and port {@link $port}.
+     * Creates a Redis connection to the Redis server on host {@link $host} and port {@link $port}.
      * $host may also be a path to a unix socket or a string in the form of tcp://[hostname]:[port] or unix://[path]
      *
      * @param string $host The hostname of the Redis server
      * @param integer $port The port number of the Redis server
      * @param float|null $timeout Timeout period in seconds
      * @param string $persistent Flag to establish persistent connection
-     * @param int $db The selected datbase of the Redis server
+     * @param int $db The selected database of the Redis server
      * @param string|null $password The authentication password of the Redis server
      */
     public function __construct(string $host = '127.0.0.1', int $port = 6379, float $timeout = null, string $persistent = '', int $db = 0, string $password = null)
@@ -397,8 +397,8 @@ class RedisClient
                     throw new RedisClientException('Invalid host format; expected ' . $this->scheme . '://host[:port][/persistence_identifier]');
                 }
                 $this->host = $matches[1];
-                $this->port = (int)(isset($matches[3]) ? $matches[3] : $this->port);
-                $this->persistent = isset($matches[5]) ? $matches[5] : $this->persistent;
+                $this->port = (int)($matches[3] ?? $this->port);
+                $this->persistent = $matches[5] ?? $this->persistent;
             } else {
                 $this->host = $matches[2];
                 $this->port = NULL;
