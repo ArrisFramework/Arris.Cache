@@ -2,6 +2,7 @@
 
 namespace Arris\Cache;
 
+use Arris\Cache\Exceptions\CacheDatabaseException;
 use JsonException;
 use PDO;
 use Arris\Cache\Exceptions\CacheCallbackException;
@@ -35,6 +36,11 @@ class Cache implements CacheInterface
      * @var PDO|null $pdo
      */
     private static $pdo;
+
+    /**
+     * @var
+     */
+    public static $log_rules_define = [];
 
     /**
      * @var array
@@ -74,9 +80,14 @@ class Cache implements CacheInterface
             }
         }
 
+        if (!is_null($PDO)) {
+            $PDO->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        }
+
         // теперь перебираем $rules
         foreach ($rules as $rule_name => $rule_definition) {
             $message = self::defineRule($rule_name, $rule_definition);
+            self::$log_rules_define[ $rule_name ] = $message;
 
             if ($logger instanceof LoggerInterface) {
                 $logger->debug($message);
@@ -107,6 +118,8 @@ class Cache implements CacheInterface
     public static function addRule(string $rule_name, $rule_definition):string
     {
         $message = self::defineRule($rule_name, $rule_definition);
+        self::$log_rules_define[ $rule_name ] = $message;
+
         if (self::$logger instanceof LoggerInterface) {
             self::$logger->debug($message);
         }
@@ -381,33 +394,41 @@ class Cache implements CacheInterface
             case self::RULE_SOURCE_SQL: {
                 // коннекта к БД нет: кладем в репозиторий null и продолжаем
                 if (is_null(self::$pdo)) {
-                    $message = '[ERROR] Key not found, PDO not defined';
+                    $message = '[ERROR] Key not found, Action is SQL, but PDO not connected';
                     self::set($rule_name, null);
                     return $message;
                 }
 
-                $sth = self::$pdo->query($rule_definition['action']);
-                if (false === $sth) {
-                    $message = '[ERROR] Key not found, PDO present, PDO Answer invalid';
-                    self::set($rule_name, null);
-                    return $message;
+                try {
+                    $sth = self::$pdo->query($rule_definition['action']);
+                    $data = $sth->fetchAll();
+                    $message = "Data for `{$rule_name}` fetched from DB";
+
+                } catch (\PDOException $e) {
+                    throw new CacheDatabaseException("[ERROR] Rule [{$rule_name}] throws PDO Error: " . $e->getMessage(), (int)$e->getCode());
                 }
-                $data = $sth->fetchAll();
-                $message = "Data for `{$rule_name}` fetched from DB,";
 
                 break;
             }
             case self::RULE_SOURCE_RAW: {
                 $data = $rule_definition['data'];
-                $message = "Data for `{$rule_name}` fetched raw data,";
+                $message = "Data for `{$rule_name}` fetched as RAW data";
 
                 break;
             }
+
             // case self::RULE_SOURCE_CALLBACK
             default: {
                 [$actor, $params] = self::compileCallbackHandler($rule_definition['action']);
-                $data = call_user_func_array($actor, $params);
-                $message = "Data for `{$rule_name}` fetched from callback,";
+
+                try {
+                    $data = call_user_func_array($actor, $params);
+                    $message = "Data for `{$rule_name}` fetched from callback";
+
+                } catch (\PDOException $e) {
+                    throw new CacheDatabaseException("[ERROR] Rule [{$rule_name}] throws PDO Error: " . $e->getMessage(), (int)$e->getCode());
+                }
+
             }
         }
 
@@ -420,9 +441,9 @@ class Cache implements CacheInterface
             if ($ttl > 0) {
                 self::$redis_connector->expire($rule_name, $ttl);
             }
-            $message .= " stored to cache, saved to redis, TTL: {$ttl} seconds";
+            $message .= ", stored to cache, saved to redis, TTL: {$ttl} seconds";
         } else {
-            $message .= " stored to cache, redis disabled";
+            $message .= ", stored to cache, redis disabled";
         }
 
         return $message;
