@@ -118,9 +118,11 @@ interface CacheInterface
      *
      * В противном случае весьма вероятны эксепшены вида: call method on null или call undefined method
      *
-     * @return RedisClient|false
+     * Метод может вернуть NULL если коннект не установлен
+     *
+     * @return RedisClient|false|null
      */
-    public static function getConnector():RedisClient;
+    public static function getConnector();
 
     /**
      * Извлекает данные из редиса по ключу. Если передан второй аргумент false - не проводит json_decode

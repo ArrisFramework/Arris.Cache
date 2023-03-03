@@ -2,14 +2,14 @@
 
 namespace Arris\Cache;
 
-use Arris\Cache\Exceptions\CacheDatabaseException;
-use JsonException;
 use PDO;
+use JsonException;
+use Psr\Log\NullLogger;
+use Psr\Log\LoggerInterface;
+use Arris\Cache\Exceptions\CacheDatabaseException;
 use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\RedisClientException;
-use Psr\Log\LoggerInterface;
 
-use Psr\Log\NullLogger;
 use function array_key_exists, array_keys, array_walk, is_array;
 use function json_decode, json_encode;
 use function class_exists, method_exists, function_exists, call_user_func_array;
@@ -96,7 +96,7 @@ class Cache implements CacheInterface
 
     } // init
     
-    public static function getConnector():RedisClient
+    public static function getConnector()
     {
         return self::$redis_connector;
     }
