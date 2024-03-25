@@ -147,7 +147,7 @@ interface CacheInterface
      * @return bool
      * @throws JsonException
      */
-    public static function redisPush(string $key_name, $data, int $ttl = 0):bool;
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $jsonize = true):bool;
     
     /**
      * Удаляет данные в редисе по ключу

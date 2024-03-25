@@ -1,0 +1,15 @@
+* text=auto
+* eol=lf
+
+.git				export-ignore
+.gitattributes      export-ignore
+.gitignore          export-ignore
+makefile            export-ignore
+phpunit.xml         export-ignore
+tests               export-ignore
+vendor              export-ignore
+docs                export-ignore
+TODO.md             export-ignore
+
+
+

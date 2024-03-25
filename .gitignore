@@ -1,3 +1,5 @@
 /vendor/
-test.php
+
 composer.lock
+test*.php
+*.log

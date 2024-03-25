@@ -37,9 +37,9 @@ Cache::init([
 
 Правило типа 'callback' может быть:
 
-`Class@method`
-`Class::method`
-`customFunction`
-instance of Closure
+- `Class@method`
+- `Class::method`
+- `customFunction`
+- instance of `Closure`
 
 Параметры передаются **всегда** массивом.

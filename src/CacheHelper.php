@@ -124,4 +124,50 @@ class CacheHelper
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * Перезаписывает набор дефолтных значений на основе переданного списка опций
+     * @todo: -> Arris helpers
+     *
+     * @param $defaults
+     * @param $options
+     * @return mixed
+     */
+    public static function overrideDefaults($defaults, $options)
+    {
+        $source = $defaults;
+        array_walk($source, static function (&$default, $key) use ($options) {
+            if (array_key_exists($key, $options)) {
+                $default = $options[$key];
+            }
+        } );
+        return $source;
+    }
+
+    /**
+     * Хелпер: извлекает значение булевой опции из редиса.
+     * Опция принимает только три допустимых значения: <not exist>, 0, 1
+     *
+     * @param string $option
+     * @param int $if_present
+     * @param int $if_not_present_or_zero
+     * @return int
+     * @throws JsonException
+     */
+    public static function fetchOptionBool(string $option = '', int $if_present = 1, int $if_not_present_or_zero = 0):int
+    {
+        if (empty($option)) {
+            return $if_not_present_or_zero;
+        }
+
+        // редис ключ может не существовать или содержать 0 или 1
+        // если он не существует - условие ложно, вернем $if_not_present
+        // если он существует - приводим его к bool
+        // 0 приводится к false - вернем $if_not_present
+        // 1 приводится к true - вернем $if_present
+
+        return (Cache::redisCheck($option) && (bool)Cache::redisFetch($option)) ? $if_present : $if_not_present_or_zero;
+    }
+
+
+
 }

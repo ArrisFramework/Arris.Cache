@@ -69,11 +69,12 @@ class Cache implements CacheInterface
             'database'  =>  self::REDIS_DEFAULT_DB,
             'password'  =>  self::REDIS_DEFAULT_PASSWORD
         ];
-        /*self::$connection_options = */$options = self::overrideDefaults($options, $credentials);
+        $options = CacheHelper::overrideDefaults($options, $credentials);
+
+        self::$redis_connector = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['database'], $options['password']);
 
         if ($options['enabled']) {
             try {
-                self::$redis_connector = new RedisClient($options['host'], $options['port'], $options['timeout'], $options['persistent'], $options['database'], $options['password']);
                 self::$redis_connector->connect();
                 self::$is_redis_connected = true;
             } catch (RedisClientException $e){
@@ -229,13 +230,13 @@ class Cache implements CacheInterface
         return $value;
     }
     
-    public static function redisPush(string $key_name, $data, int $ttl = 0):bool
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $jsonize = true):bool
     {
         if (self::$is_redis_connected === false) {
             return false;
         }
     
-        self::$redis_connector->set($key_name, CacheHelper::jsonize($data));
+        self::$redis_connector->set($key_name, ($jsonize ? CacheHelper::jsonize($data) : $data));
         
         if ($ttl > 0) {
             self::$redis_connector->expire($key_name, $ttl);
@@ -391,6 +392,7 @@ class Cache implements CacheInterface
         }
 
         switch ($rule_definition['source']) {
+
             case self::RULE_SOURCE_SQL: {
                 // коннекта к БД нет: кладем в репозиторий null и продолжаем
                 if (is_null(self::$pdo)) {
@@ -452,25 +454,6 @@ class Cache implements CacheInterface
     public static function isRedisConnected():bool
     {
         return self::$is_redis_connected;
-    }
-
-    /**
-     * Перезаписывает набор дефолтных значений на основе переданного списка опций
-     * @todo: -> Arris helpers
-     *
-     * @param $defaults
-     * @param $options
-     * @return mixed
-     */
-    private static function overrideDefaults($defaults, $options)
-    {
-        $source = $defaults;
-        array_walk($source, static function (&$default, $key) use ($options) {
-            if (array_key_exists($key, $options)) {
-                $default = $options[$key];
-            }
-        } );
-        return $source;
     }
 
     /**

@@ -1139,8 +1139,6 @@ class RedisClient
                 throw new RedisClientException($e->getMessage(), $code, $e);
             }
 
-            #echo "> $name : ".substr(print_r($response, TRUE),0,100)."\n";
-
             // change return values where it is too difficult to minim in standalone mode
             switch ($name) {
                 case 'type':
