@@ -9,7 +9,7 @@ class RedisClientException extends \RuntimeException
 
     public function __construct($message, $code = 0, $exception = NULL)
     {
-        if ($exception && $exception instanceof \RedisException && strpos($message,'read error on connection') === 0) {
+        if ($exception instanceof \RedisException && strpos($message,'read error on connection') === 0) {
             $code = self::CODE_DISCONNECTED;
         }
         parent::__construct($message, $code, $exception);

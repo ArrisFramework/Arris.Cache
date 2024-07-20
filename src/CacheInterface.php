@@ -35,7 +35,16 @@ interface CacheInterface
      * @param LoggerInterface|null $logger
      * @throws JsonException
      */
-    public static function init(array $credentials = [], array $rules = [], $PDO = null, LoggerInterface $logger = null);
+    public static function init(array $credentials = [], array $rules = [], $PDO = null, ?LoggerInterface $logger = null);
+
+    /**
+     * Добавляет в репозиторий массив правил
+     *
+     * @param array $rules
+     * @return void
+     * @throws JsonException
+     */
+    public static function addRules(array $rules);
 
     /**
      * Добавляет в репозиторий новое ключ-значение (с логгированием)

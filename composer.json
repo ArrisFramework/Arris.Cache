@@ -15,16 +15,16 @@
         }
     ],
     "require": {
-        "php": ">=7.4.0",
+        "php": "^7.4 | 8.*",
         "ext-pdo": "*",
         "ext-json": "*",
+        "ext-mbstring": "*",
         "ext-redis": "*",
-        "psr/log": "^1.1",
-        "ext-mbstring": "*"
+        "psr/log": "^1 | ^2 | ^3"
     },
     "require-dev": {
-        "karelwintersky/arris": "^1.63.0",
-        "karelwintersky/arris.helpers": "^0.4.0",
+        "karelwintersky/arris": "^2",
+        "karelwintersky/arris.helpers": "^0",
         "vlucas/phpdotenv": "^3.3"
     }
 }

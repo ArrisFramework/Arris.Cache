@@ -20,31 +20,31 @@ class Cache implements CacheInterface
     /**
      * @var RedisClient $redis_connector
      */
-    private static $redis_connector;
+    private static RedisClient $redis_connector;
 
     /**
      * @var bool $is_redis_connected
      */
-    public static $is_redis_connected = false;
+    public static bool $is_redis_connected = false;
 
     /**
      * @var LoggerInterface|null $logger
      */
-    private static $logger;
+    private static ?LoggerInterface $logger;
 
     /**
-     * @var PDO|null $pdo
+     * НЕ задаем тип, поскольку может прийти как PDO, так и DBWrapper
+     * Тем более что UNION Types возможны с PHP 8.1+
+     *
+     * @var $pdo
      */
     private static $pdo;
 
     /**
-     * @var
-     */
-    public static $log_rules_define = [];
-
-    /**
      * @var array
      */
+    public static array $log_rules_define = [];
+
     /*private static $connection_options = [];*/
 
     /*private static $connectors = [];*/
@@ -52,11 +52,11 @@ class Cache implements CacheInterface
     /**
      * @var array
      */
-    public static $repository = [];
+    public static array $repository = [];
 
-    public static function init(array $credentials = [], array $rules = [], $PDO = null, LoggerInterface $logger = null)
+    public static function init(array $credentials = [], array $rules = [], $PDO = null, ?LoggerInterface $logger = null)
     {
-        self::$logger = is_null($logger) ? new NullLogger() : $logger;
+        self::$logger = \is_null($logger) ? new NullLogger() : $logger;
         self::$is_redis_connected = false;
         self::$pdo = $PDO;
 
@@ -81,7 +81,7 @@ class Cache implements CacheInterface
             }
         }
 
-        if (!is_null($PDO)) {
+        if (!\is_null($PDO)) {
             $PDO->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
 
@@ -97,7 +97,7 @@ class Cache implements CacheInterface
 
     } // init
     
-    public static function getConnector()
+    public static function getConnector(): RedisClient
     {
         return self::$redis_connector;
     }
@@ -116,6 +116,13 @@ class Cache implements CacheInterface
         return $connector;
     }*/
 
+    public static function addRules(array $rules)
+    {
+        foreach ($rules as $name => $rule) {
+            self::addRule($name, $rule);
+        }
+    }
+
     public static function addRule(string $rule_name, $rule_definition):string
     {
         $message = self::defineRule($rule_name, $rule_definition);
@@ -129,7 +136,7 @@ class Cache implements CacheInterface
 
     public static function getAllLocalKeys():array
     {
-        return array_keys(self::$repository);
+        return \array_keys(self::$repository);
     }
 
     public static function getAllRedisKeys():array
@@ -140,7 +147,7 @@ class Cache implements CacheInterface
         }
 
         $keys = self::$redis_connector->keys('*');
-        $keys_count = count($keys);
+        $keys_count = \count($keys);
 
         self::$logger->debug("[getAllRedisKeys] Returned {$keys_count} key(s)");
 
@@ -154,8 +161,12 @@ class Cache implements CacheInterface
             return [];
         }
 
-        $keys = $use_keys_from_redis ? self::$redis_connector->keys('*') : array_keys(self::$repository);
-        $keys_count = count($keys);
+        $keys
+            = $use_keys_from_redis
+            ? self::$redis_connector->keys('*')
+            : \array_keys(self::$repository);
+
+        $keys_count = \count($keys);
 
         self::$logger->debug("[getAllKeys] Returned {$keys_count} key(s)");
 
@@ -179,13 +190,13 @@ class Cache implements CacheInterface
 
     public static function check(string $key): bool
     {
-        return array_key_exists($key, self::$repository);
+        return \array_key_exists($key, self::$repository);
     }
 
     public static function unset(string $key)
     {
         if (self::check($key)) {
-            unset( self::$repository[$key]);
+            unset(self::$repository[$key]);
         }
     }
 
@@ -198,7 +209,7 @@ class Cache implements CacheInterface
 
     public static function flush(string $key, bool $clean_redis = true):string
     {
-        if (strpos($key, '*') === false) {
+        if (\strpos($key, '*') === false) {
             self::unset($key);
             if (self::$redis_connector && $clean_redis) {
                 self::$redis_connector->del($key);
@@ -207,7 +218,7 @@ class Cache implements CacheInterface
         } else {
             $custom_mask = self::createMask($key);
             $all_keys = $clean_redis ? self::getAllRedisKeys() : self::getAllLocalKeys();
-            $custom_list = preg_grep($custom_mask, $all_keys);
+            $custom_list = \preg_grep($custom_mask, $all_keys);
             foreach ($custom_list as $k) {
                 self::flush($k, $clean_redis);
             }
@@ -224,7 +235,7 @@ class Cache implements CacheInterface
         $value = self::$redis_connector->get($key_name);
         
         if ($use_json_decode && !empty($value)) {
-            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+            $value = \json_decode($value, true, 512, JSON_THROW_ON_ERROR);
         }
         
         return $value;
@@ -260,12 +271,12 @@ class Cache implements CacheInterface
         if ($key_name === '*') {
             self::$redis_connector->flushDb();
             $deleted = [ '*' ];
-        } elseif (strpos($key_name, '*') === false) {
+        } elseif (\strpos($key_name, '*') === false) {
             self::$redis_connector->del($key_name);
             $deleted = [ $key_name ];
         } else {
             $custom_mask = self::createMask($key_name);
-            $custom_list = preg_grep($custom_mask, self::$redis_connector->keys('*'));
+            $custom_list = \preg_grep($custom_mask, self::$redis_connector->keys('*'));
 
             foreach ($custom_list as $k) {
                 $deleted[] = self::redisDel($k);
@@ -311,7 +322,7 @@ class Cache implements CacheInterface
     
     public static function incrCounter(string $key, int $diff = 1):int
     {
-        if (!array_key_exists($key, self::$repository)) {
+        if (!\array_key_exists($key, self::$repository)) {
             self::set($key, 0);
         }
         
@@ -325,7 +336,7 @@ class Cache implements CacheInterface
     
     public static function decrCounter(string $key, int $diff = 1):int
     {
-        if (!array_key_exists($key, self::$repository)) {
+        if (!\array_key_exists($key, self::$repository)) {
             self::set($key, 0);
         }
         
@@ -370,15 +381,15 @@ class Cache implements CacheInterface
             $rule_value = self::$redis_connector->get($rule_name);
             
             if ($rule_value !== false) {
-                self::set($rule_name, json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR));
+                self::set($rule_name, \json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR));
                 return "[INFO] Loaded `{$rule_name}` from redis, stored to cache";
             }
         }
 
         // определяем action и TTL
-        $enabled = array_key_exists('enabled', $rule_definition) ? $rule_definition['enabled'] : true;
-        $ttl = array_key_exists('ttl', $rule_definition) ? $rule_definition['ttl'] : 0;
-        $action = array_key_exists('action', $rule_definition) ? $rule_definition['action'] : null; // оператор `??` менее нагляден, поэтому оставлено так
+        $enabled    = \array_key_exists('enabled', $rule_definition) ? $rule_definition['enabled'] : true;
+        $ttl        = \array_key_exists('ttl', $rule_definition) ? $rule_definition['ttl'] : 0;
+        $action     = \array_key_exists('action', $rule_definition) ? $rule_definition['action'] : null; // оператор `??` менее нагляден, поэтому оставлено так
 
         if ($enabled === false) {
             return "Rule `{$rule_name}` disabled";
@@ -395,7 +406,7 @@ class Cache implements CacheInterface
 
             case self::RULE_SOURCE_SQL: {
                 // коннекта к БД нет: кладем в репозиторий null и продолжаем
-                if (is_null(self::$pdo)) {
+                if (\is_null(self::$pdo)) {
                     $message = '[ERROR] Key not found, Action is SQL, but PDO not connected';
                     self::set($rule_name, null);
                     return $message;
@@ -424,7 +435,7 @@ class Cache implements CacheInterface
                 [$actor, $params] = self::compileCallbackHandler($rule_definition['action']);
 
                 try {
-                    $data = call_user_func_array($actor, $params);
+                    $data = \call_user_func_array($actor, $params);
                     $message = "Data for `{$rule_name}` fetched from callback";
 
                 } catch (\PDOException $e) {
@@ -458,7 +469,7 @@ class Cache implements CacheInterface
 
     /**
      * "Компилирует" параметры коллбэка
-     * (@todo: обновить в Arris\Router)
+     * (@todo: обновить в Arris\Router ?)
      *
      * @param $actor
      * @return array
@@ -480,36 +491,39 @@ class Cache implements CacheInterface
         // 1 - массив параметров
         if (is_array($actor)) {
             $handler = $actor[0];
-            $params = (count($actor) > 1) ? $actor[1] : [];
+            $params
+                = \count($actor) > 1
+                ? $actor[1]
+                : [];
 
-            if (!is_string($handler)) {
+            if (!\is_string($handler)) {
                 throw new CacheCallbackException("First argument of callback array is NOT a string");
             }
             
-            if (strpos($handler, '@') > 0) {
+            if (\strpos($handler, '@') > 0) {
                 // dynamic class
-                [$class, $method] = explode('@', $handler, 2);
+                [$class, $method] = \explode('@', $handler, 2);
 
-                if (!class_exists($class)) {
+                if (!\class_exists($class)) {
                     self::$logger->error("Class {$class} not defined.", [ $class ]);
                     throw new CacheCallbackException("Class {$class} not defined.", 500);
                 }
 
-                if (!method_exists($class, $method)) {
+                if (!\method_exists($class, $method)) {
                     self::$logger->error("Method {$method} not declared at {$class} class.", [ $class, $method ]);
                     throw new CacheCallbackException("Method {$method} not declared at {$class} class", 500);
                 }
 
                 $actor = [ new $class, $method ];
-            } elseif (strpos($handler, '::') > 0) {
+            } elseif (\strpos($handler, '::') > 0) {
                 [$class, $method] = explode('::', $handler, 2);
 
-                if (!class_exists($class)) {
+                if (!\class_exists($class)) {
                     self::$logger->error("Class {$class} not defined.", [ $class ]);
                     throw new CacheCallbackException("Class {$class} not defined.", 500);
                 }
 
-                if (!method_exists($class, $method)) {
+                if (!\method_exists($class, $method)) {
                     self::$logger->error("Static method {$method} not declared at {$class} class.", [ $class, $method ]);
                     throw new CacheCallbackException("Static method {$method} not declared at {$class} class", 500);
                 }
@@ -537,13 +551,13 @@ class Cache implements CacheInterface
      */
     private static function createMask($mask)
     {
-        $mask = str_replace('**', '*', $mask);
-        $mask = str_replace("\\", '\\\\', $mask); // должно быть первым
-        $mask = str_replace('/', '\/', $mask);
-        $mask = str_replace('.', '\.', $mask);
-        $mask = str_replace('*', '.*', $mask);
-        $mask = str_replace('[', '\[', $mask);
-        $mask = str_replace(']', '\]', $mask);
+        $mask = \str_replace('**', '*', $mask);
+        $mask = \str_replace("\\", '\\\\', $mask); // должно быть первым
+        $mask = \str_replace('/', '\/', $mask);
+        $mask = \str_replace('.', '\.', $mask);
+        $mask = \str_replace('*', '.*', $mask);
+        $mask = \str_replace('[', '\[', $mask);
+        $mask = \str_replace(']', '\]', $mask);
         
         return '/^' . $mask . '/m';
     }
