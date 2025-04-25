@@ -5,6 +5,7 @@ namespace Arris\Cache;
 use Arris\Cache\Exceptions\CacheDatabaseException;
 use Arris\Cache\Exceptions\RedisClientException;
 use Arris\Entity\Result;
+use JsonException;
 use PDO;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -16,10 +17,21 @@ class CacheV2 implements CacheV2Interface
     public static bool $is_redis_connected = false;
     public static mixed $pdo;
 
+    public static array $repository = [];
+
     public static \Arris\Toolkit\RedisClient $redis;
 
     /**
-     * @throws RedisException|\Arris\Toolkit\RedisClientException
+     * Инициализирует репозиторий
+     *
+     * @param string $redis_host
+     * @param int $redis_port
+     * @param int $redis_database
+     * @param bool $redis_enabled
+     * @param null $PDO
+     * @param LoggerInterface|null $logger
+     *
+     * @throws \Arris\Toolkit\RedisClientException
      */
     public static function init(string $redis_host = self::REDIS_DEFAULT_HOST, int $redis_port = self::REDIS_DEFAULT_PORT, int $redis_database = self::REDIS_DEFAULT_DB, bool $redis_enabled = true, $PDO = null, ?LoggerInterface $logger = null)
     {
@@ -53,7 +65,7 @@ class CacheV2 implements CacheV2Interface
             try {
                 self::$redis->connect();
                 self::$is_redis_connected = true;
-            } catch (RedisClientException $e){
+            } catch (\Arris\Toolkit\RedisClientException|RedisException $e) {
             }
         }
 
@@ -62,12 +74,8 @@ class CacheV2 implements CacheV2Interface
         }
     }
 
-    /**
-     * @throws \Arris\Toolkit\RedisClientException
-     * @throws RedisException
-     * @throws \JsonException
-     */
-    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0)
+
+    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result
     {
         $message = '';
         $result = new Result();
@@ -78,8 +86,7 @@ class CacheV2 implements CacheV2Interface
             if ($rule_value !== false) {
                 self::set(
                     $rule_name,
-                    \json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR),
-                    false
+                    \json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR)
                 );
                 $result->success("[INFO] Loaded `{$rule_name}` from redis, stored to cache");
                 return $result;
@@ -93,14 +100,13 @@ class CacheV2 implements CacheV2Interface
 
         if (empty($action)) {
             $result->success("[ERROR] Key found, but action is empty");
-            self::set($rule_name, null, false);
-            return $message;
+            self::set($rule_name, null);
+            return $result;
         }
 
         $data = null;
 
         switch ($source) {
-
             case self::RULE_SOURCE_SQL: {
 
                 // коннекта к БД нет: кладем в репозиторий null и продолжаем
@@ -174,19 +180,60 @@ class CacheV2 implements CacheV2Interface
         // TODO: Implement get() method.
     }
 
+    /**
+     * Добавляет значение в репозиторий, заменяет старое
+     *
+     * @param string $key
+     * @param $data
+     */
     public static function set(string $key, $data)
     {
-        // TODO: Implement set() method.
+        self::unset($key);
+        self::$repository[ $key ] = $data;
     }
 
+    /**
+     * Приватный метод удаления ключа из репозитория
+     *
+     * @param string $key
+     * @return void
+     */
+    private static function unset(string $key):void
+    {
+        if (self::check($key)) {
+            unset(self::$repository[$key]);
+        }
+    }
+
+    /**
+     * Проверяет наличие ключа в репозитории
+     *
+     * @param string $key
+     * @return bool
+     */
     public static function check(string $key): bool
     {
-        // TODO: Implement check() method.
+        return array_key_exists($key, self::$repository);
     }
 
+    /**
+     * Удаляет ключ из репозитория и редиса
+     *
+     * Допустимо указание маски в ключе:
+     * `article*`, и даже `*rticl*`
+     * Маска `*` означает, очевидно, все ключи.
+     *
+     * @param string $key
+     * @param bool $redis_update
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function drop(string $key, bool $redis_update = true)
     {
-        // TODO: Implement drop() method.
+        self::unset($key);
+        if ($redis_update) {
+            self::redisDel($key);
+        }
     }
 
     public static function dropAll(bool $redis_update = true)
@@ -194,24 +241,106 @@ class CacheV2 implements CacheV2Interface
         // TODO: Implement dropAll() method.
     }
 
+    /**
+     *  Извлекает данные из редиса по ключу, декодируя JSON
+     *
+     * @param string $key_name
+     * @param bool $use_json_decode
+     * @return bool|mixed|string|null
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     * @throws \JsonException
+     */
     public static function redisFetch(string $key_name, bool $use_json_decode = true)
     {
-        // TODO: Implement redisFetch() method.
+        if (self::$is_redis_connected === false) {
+            return null;
+        }
+
+        $value = self::$redis->get($key_name, false);
+
+        if ($use_json_decode && !empty($value)) {
+            $value = \json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+
+        return $value;
     }
 
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $jsonize = true): bool
+    /**
+     * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
+     *
+     * Если TTL 0 - ключ не истекает
+     *
+     * Возвращает TRUE если удалось, FALSE - если редис отключен или данные в редисе "не оказались"
+     *
+     * @param string $key_name
+     * @param $data
+     * @param int $ttl
+     * @param bool $use_json_encode
+     * @return bool
+     *
+     * @throws JsonException
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): bool
     {
-        // TODO: Implement redisPush() method.
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+
+        self::$redis->set($key_name, ($use_json_encode ? CacheHelper::jsonize($data) : $data));
+
+        if ($ttl > 0) {
+            self::$redis->expire($key_name, $ttl);
+        }
+
+        if (self::$redis->exists($key_name)) {
+            return true;
+        }
+
+        return false;
     }
 
-    public static function redisDel(string $key_name)
+    /**
+     * Удаляет данные в редисе по ключу
+     *
+     * Допустимо удаление по маске
+     *
+     * Возвращает список ключей, которые попытались удалить
+     *
+     * @param string $key_name
+     * @return array|bool
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
+    public static function redisDel(string $key_name): bool|array
     {
-        // TODO: Implement redisDel() method.
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+
+        $deleted = self::$redis->delete($key_name);
+        ksort($deleted);
+
+        return $deleted;
     }
 
-    public static function redisCheck(string $keyname): bool
+    /**
+     * Проверяет существование ключа в редисе
+     *
+     * @param string $key_name
+     * @return bool
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
+    public static function redisCheck(string $key_name): bool
     {
-        // TODO: Implement redisCheck() method.
+        if (self::$is_redis_connected === false) {
+            return false;
+        }
+
+        return self::$redis->exists($key_name);
     }
 
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0): int

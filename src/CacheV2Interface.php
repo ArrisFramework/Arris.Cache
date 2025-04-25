@@ -2,6 +2,7 @@
 
 namespace Arris\Cache;
 
+use Arris\Entity\Result;
 use JsonException;
 use Psr\Log\LoggerInterface;
 
@@ -32,18 +33,7 @@ interface CacheV2Interface
     public const TIME_MONTH     = self::TIME_FULL_DAY * 30;
     public const TIME_YEAR      = self::TIME_MONTH * 12;
 
-    /**
-     * Инициализирует репозиторий
-     *
-     * @param string $redis_host
-     * @param int $redis_port
-     * @param int $redis_database
-     * @param bool $redis_enabled
-     * @param null $PDO
-     * @param LoggerInterface|null $logger
-     *
-     * @return mixed
-     */
+
     public static function init(
         string  $redis_host = self::REDIS_DEFAULT_HOST,
         int     $redis_port = self::REDIS_DEFAULT_PORT,
@@ -61,9 +51,9 @@ interface CacheV2Interface
      * @param string $source
      * @param $action
      * @param int $ttl
-     * @return mixed
+     * @return Result
      */
-    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0);
+    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result;
 
     /**
      * Получает данные из репозитория
@@ -74,32 +64,11 @@ interface CacheV2Interface
      */
     public static function get(string $key, $default = null);
 
-    /**
-     * Добавляет значение в репозиторий, удаляя старое
-     *
-     * @param string $key
-     * @param $data
-     */
     public static function set(string $key, $data);
 
-    /**
-     * Проверяет наличие ключа в репозитории
-     *
-     * @param string $key
-     * @return bool
-     */
     public static function check(string $key): bool;
 
-    /**
-     * Удаляет ключ из репозитория и редиса
-     *
-     * Допустимо указание маски в ключе:
-     * `ar*`, `ar*[*`, `ar*\[*` и даже `*ore*`
-     * Маска `*` означает, очевидно, все ключи.
-     *
-     * @param string $key
-     * @param bool $redis_update
-     */
+
     public static function drop(string $key, bool $redis_update = true);
 
     /**
@@ -119,41 +88,14 @@ interface CacheV2Interface
      */
     public static function redisFetch(string $key_name, bool $use_json_decode = true);
 
-    /**
-     * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
-     *
-     * Если TTL 0 - ключ не истекает
-     *
-     * Возвращает TRUE если удалось, FALSE - если редис отключен или данные в редисе "не оказались"
-     *
-     * @param string $key_name
-     * @param $data
-     * @param int $ttl
-     * @param bool $jsonize
-     * @return bool
-     * @throws JsonException
-     */
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $jsonize = true):bool;
 
-    /**
-     * Удаляет данные в редисе по ключу
-     *
-     * Допустимо удаление по маске
-     *
-     * Возвращает список ключей, которые попытались удалить
-     *
-     * @param string $key_name
-     * @return array|bool
-     */
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool;
+
+
     public static function redisDel(string $key_name);
 
-    /**
-     * Проверяет существование ключа в редисе
-     *
-     * @param string $keyname
-     * @return bool
-     */
-    public static function redisCheck(string $keyname):bool;
+
+    public static function redisCheck(string $key_name):bool;
 
     /**
      * Добавляет счетчик (целое число) в кэш и редис (если подключен)
