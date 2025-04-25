@@ -20,7 +20,9 @@
         "ext-json": "*",
         "ext-mbstring": "*",
         "ext-redis": "*",
-        "psr/log": "^1 | ^2 | ^3"
+        "psr/log": "*",
+        "karelwintersky/arris.entity": "^1.0",
+        "karelwintersky/arris.toolkit.nanoredis": "^0.999.0"
     },
     "require-dev": {
         "karelwintersky/arris": "^2",

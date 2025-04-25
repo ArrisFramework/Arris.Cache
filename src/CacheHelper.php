@@ -2,6 +2,7 @@
 
 namespace Arris\Cache;
 
+use Arris\Cache\Exceptions\CacheCallbackException;
 use JsonException;
 use function mb_strpos;
 use function array_filter;
@@ -167,6 +168,83 @@ class CacheHelper
 
         return (Cache::redisCheck($option) && (bool)Cache::redisFetch($option)) ? $if_present : $if_not_present_or_zero;
     }
+
+    /**
+     * "Компилирует" параметры коллбэка
+     * (@param $actor
+     * @param $logger
+     * @return array
+     * @todo: обновить в Arris\Router ?)
+     *
+     */
+    public static function compileCallbackHandler($actor, $logger): array
+    {
+        if ($actor instanceof \Closure) {
+            return [
+                $actor, []
+            ];
+        }
+
+        $params = null;
+
+        // 0 - имя класса + метода
+        // 1 - массив параметров
+        if (is_array($actor)) {
+            $handler = $actor[0];
+            $params
+                = \count($actor) > 1
+                ? $actor[1]
+                : [];
+
+            if (!\is_string($handler)) {
+                throw new CacheCallbackException("First argument of callback array is NOT a string");
+            }
+
+            if (\strpos($handler, '@') > 0) {
+                // dynamic class
+                [$class, $method] = \explode('@', $handler, 2);
+
+                if (!\class_exists($class)) {
+                    $logger->error("Class {$class} not defined.", [ $class ]);
+                    throw new CacheCallbackException("Class {$class} not defined.", 500);
+                }
+
+                if (!\method_exists($class, $method)) {
+                    $logger->error("Method {$method} not declared at {$class} class.", [ $class, $method ]);
+                    throw new CacheCallbackException("Method {$method} not declared at {$class} class", 500);
+                }
+
+                $actor = [ new $class, $method ];
+            } elseif (\strpos($handler, '::') > 0) {
+                [$class, $method] = explode('::', $handler, 2);
+
+                if (!\class_exists($class)) {
+                    $logger->error("Class {$class} not defined.", [ $class ]);
+                    throw new CacheCallbackException("Class {$class} not defined.", 500);
+                }
+
+                if (!\method_exists($class, $method)) {
+                    $logger->error("Static method {$method} not declared at {$class} class.", [ $class, $method ]);
+                    throw new CacheCallbackException("Static method {$method} not declared at {$class} class", 500);
+                }
+
+                $actor = [ $class, $method ];
+            } else {
+                // function
+                if (!function_exists($handler)){
+                    $logger->error("Handler function {$handler} not found", [ ]);
+                    throw new CacheCallbackException("Handler function {$handler} not found", 500);
+                }
+
+                $actor = $handler;
+            }
+        } // is_array
+
+        return [
+            $actor, $params
+        ];
+
+    } // compileCallbackHandler
 
 
 
