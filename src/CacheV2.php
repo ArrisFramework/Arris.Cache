@@ -3,7 +3,6 @@
 namespace Arris\Cache;
 
 use Arris\Cache\Exceptions\CacheDatabaseException;
-use Arris\Cache\Exceptions\RedisClientException;
 use Arris\Entity\Result;
 use JsonException;
 use PDO;
@@ -74,7 +73,20 @@ class CacheV2 implements CacheV2Interface
         }
     }
 
-
+    /**
+     * Добавляет ПРАВИЛО: значение в репозиторий - по ключу из редиса или значение из fallback-функции
+     *
+     * @param $rule_name - ключ
+     * @param bool $enabled - включено ли правило
+     * @param string $source - источник данных: RULE_SOURCE_SQL, RULE_SOURCE_CALLBACK, RULE_SOURCE_RAW
+     * @param null $action - действие: SQL-запрос, коллбэк-функция или коллбэк-запись, сырое значение
+     * @param int $ttl - время жизни значения в секундах, 0 - вечно
+     *
+     * @return Result
+     * @throws JsonException
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result
     {
         $message = '';
@@ -177,7 +189,11 @@ class CacheV2 implements CacheV2Interface
 
     public static function get(string $key, $default = null)
     {
-        // TODO: Implement get() method.
+        if (self::check($key)) {
+            self::$logger->debug("Received `{$key}` from cache");
+            return self::$repository[ $key ];
+        }
+        return $default;
     }
 
     /**
@@ -236,9 +252,19 @@ class CacheV2 implements CacheV2Interface
         }
     }
 
+
+    /**
+     * Удаляет все ключи из репозитория и редиса
+     *
+     * @throws \Arris\Toolkit\RedisClientException
+     * @throws RedisException
+     */
     public static function dropAll(bool $redis_update = true)
     {
-        // TODO: Implement dropAll() method.
+        self::$repository = [];
+        if ($redis_update) {
+            self::$redis->flushDatabase();
+        }
     }
 
     /**
@@ -251,7 +277,7 @@ class CacheV2 implements CacheV2Interface
      * @throws \Arris\Toolkit\RedisClientException
      * @throws \JsonException
      */
-    public static function redisFetch(string $key_name, bool $use_json_decode = true)
+    public static function redisFetch(string $key_name, bool $use_json_decode = true): mixed
     {
         if (self::$is_redis_connected === false) {
             return null;
@@ -343,23 +369,93 @@ class CacheV2 implements CacheV2Interface
         return self::$redis->exists($key_name);
     }
 
+    /**
+     * Добавляет счетчик (целое число) в кэш и редис (если подключен)
+     * Если TTL 0 - ключ не истекает
+     *
+     * @param string $key
+     * @param int $initial
+     * @param int $ttl
+     * @return int
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0): int
     {
-        // TODO: Implement addCounter() method.
+        self::set($key, $initial);
+        if (self::$is_redis_connected) {
+            self::$redis->set($key, $initial);
+
+            if ($ttl > 0) {
+                self::$redis->expire($key, $ttl);
+            }
+
+            return self::$redis->get($key);
+        }
+        return $initial;
     }
 
+    /**
+     * Увеличивает счетчик в кэше и редисе (если подключен)
+     *
+     * @param string $key
+     * @param int $diff
+     * @return int
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function incrCounter(string $key, int $diff = 1): int
     {
-        // TODO: Implement incrCounter() method.
+        if (!\array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
+        }
+
+        if (self::$is_redis_connected) {
+            self::$redis->incrBy($key, $diff);
+        }
+
+        self::$repository[ $key ] += $diff;
+        return self::$repository[ $key ];
     }
 
+    /**
+     * Уменьшает счетчик в кэше и редисе (если подключен)
+     *
+     * @param string $key
+     * @param int $diff
+     * @return int
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function decrCounter(string $key, int $diff = 1): int
     {
-        // TODO: Implement decrCounter() method.
+        if (!\array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
+        }
+
+        if (self::$is_redis_connected) {
+            self::$redis->decrBy($key, $diff);
+        }
+
+        self::$repository[ $key ] -= $diff;
+        return self::$repository[ $key ];
     }
 
+    /**
+     * Возвращает значение счетчика из редиса или кэша
+     *
+     * @param string $key
+     * @param int $default
+     * @return int
+     * @throws RedisException
+     * @throws \Arris\Toolkit\RedisClientException
+     */
     public static function getCounter(string $key, int $default = 0): int
     {
-        // TODO: Implement getCounter() method.
+        if (self::$is_redis_connected) {
+            return self::$redis->get($key);
+        }
+
+        return self::get($key, $default);
     }
 }

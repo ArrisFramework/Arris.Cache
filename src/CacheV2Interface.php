@@ -43,16 +43,7 @@ interface CacheV2Interface
         ?LoggerInterface $logger = null
     );
 
-    /**
-     * Добавляет в репозиторий правило
-     *
-     * @param $rule_name
-     * @param bool $enabled
-     * @param string $source
-     * @param $action
-     * @param int $ttl
-     * @return Result
-     */
+
     public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result;
 
     /**
@@ -71,9 +62,7 @@ interface CacheV2Interface
 
     public static function drop(string $key, bool $redis_update = true);
 
-    /**
-     * Удаляет все ключи из репозитория и редиса
-     */
+
     public static function dropAll(bool $redis_update = true);
 
     /* ТОЛЬКО с редисом */
@@ -97,42 +86,16 @@ interface CacheV2Interface
 
     public static function redisCheck(string $key_name):bool;
 
-    /**
-     * Добавляет счетчик (целое число) в кэш и редис (если подключен)
-     * Если TTL 0 - ключ не истекает
-     *
-     * @param string $key
-     * @param int $initial
-     * @param int $ttl
-     * @return int
-     */
+
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int;
 
-    /**
-     * Увеличивает счетчик в кэше и редисе (если подключен)
-     *
-     * @param string $key
-     * @param int $diff
-     * @return int
-     */
+
     public static function incrCounter(string $key, int $diff = 1):int;
 
-    /**
-     * Уменьшает счетчик в кэше и редисе (если подключен)
-     *
-     * @param string $key
-     * @param int $diff
-     * @return int
-     */
+
     public static function decrCounter(string $key, int $diff = 1):int;
 
-    /**
-     * Возвращает значение счетчика из редиса или кэша
-     *
-     * @param string $key
-     * @param int $default
-     * @return int
-     */
+
     public static function getCounter(string $key, int $default = 0):int;
 
 
