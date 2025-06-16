@@ -1,11 +1,11 @@
 {
     "name": "karelwintersky/arris.cache",
-    "description": "Arris µFramework Cache Redis wrapper",
+    "description": "Arris µFramework Cache Engine",
     "type": "library",
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Arris\\Cache\\": "src/"
+            "Arris\\Cache\\": [ "src/" ]
         }
     },
     "authors": [
@@ -15,7 +15,7 @@
         }
     ],
     "require": {
-        "php": "^7.4 | 8.*",
+        "php": "^8",
         "ext-pdo": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
@@ -27,6 +27,8 @@
     "require-dev": {
         "karelwintersky/arris": "^2",
         "karelwintersky/arris.helpers": "^0",
+        "karelwintersky/arris.database": "^2",
+        "karelwintersky/arris.logger": "^2",
         "vlucas/phpdotenv": "^3.3"
     }
 }
