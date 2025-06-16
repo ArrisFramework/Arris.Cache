@@ -1,38 +1,54 @@
 # Arris.Cache
 
-Arris µFramework Cache Redis wrapper
+Arris µFramework Cache Engine
 
 ```php
 use Arris\Cache\Cache;
 use Arris\DB;
 use Arris\AppLogger;
 
-$pdo_connection = new PDO('');
-// or $pdo_connection = DB::getConnection();
+$pdo_config = (new \Arris\Database\Config())
+    ->setUsername('root')
+    ->setPassword('password')
+    ->setDatabase('testdatabase');
+$pdo = $pdo_config->connect();
 
-Cache::init([
-    'enabled'   =>  getenv('REDIS.ENABLED'),
-    'host'      =>  getenv('REDIS.HOST'),
-    'port'      =>  getenv('REDIS.PORT'),
-    'password'  =>  getenv('REDIS.PASSWORD'),
-    'database'  =>  getenv('REDIS.DATABASE')
-], [
-    'districts' =>  [
-        'source'    =>  'sql',
-        'action'    =>  'SELECT id, name FROM districts WHERE hidden = 0 ORDER BY id ASC',
-        'ttl'       =>  86400
-    ],
-    'rubrics'   =>  [
-        'source'    =>  'sql',
-        'action'    =>  'SELECT id, name, url FROM rubrics WHERE hidden = 0 ORDER BY sorder',
-        'ttl'       =>  86400
-    ],
-    'Articles.getLatest100' =>  [
-        'source'    =>  'callback',
-        'action'    =>  [ "\FSNews\Units\Articles@getLeftLatestArticles", [ 100 ] ],
-        'ttl'       =>  50
-    ],
-], $pdo_connection, AppLogger::scope('redis'));
+Cache::init(PDO: $pdo);
+
+$v = 5;
+
+Cache::addRule(
+    'districts',
+    source: Cache::RULE_SOURCE_SQL,
+    action: 'SELECT id, name FROM districts WHERE hidden = 0 ORDER BY id ASC',
+    ttl: Cache::TIME_FULL_DAY
+);
+
+Cache::addRule(
+    'rubrics',
+    source: Cache::RULE_SOURCE_SQL,
+    action: 'SELECT id, name, url FROM rubrics WHERE hidden = 0 ORDER BY sorder',
+    ttl: Cache::TIME_FULL_DAY
+);
+
+Cache::addRule(
+    'data',
+    source: Cache::RULE_SOURCE_CALLBACK,
+    action: static function() use ($v){ return $v; },
+);
+
+Cache::addRule(
+    'callback',
+    source: Cache::RULE_SOURCE_CALLBACK,
+    action: [ "TestClass@getData", [ 1000000 ] ]
+);
+
+Cache::addRule(
+    'raw',
+    source: Cache::RULE_SOURCE_RAW,
+    action: [ 1 => 2, 3 => "b"]
+);
+
 ```
 
 Правило типа 'callback' может быть:
@@ -43,3 +59,7 @@ Cache::init([
 - instance of `Closure`
 
 Параметры передаются **всегда** массивом.
+
+
+--- 
+NB: Да, в PHP возможен механизм A::B()::C()

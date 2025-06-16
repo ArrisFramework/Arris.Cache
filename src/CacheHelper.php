@@ -47,7 +47,7 @@ class CacheHelper
      * @param bool $strict -- использовать ли строгое сравнение?
      * @return array|null
      */
-    public static function searchHashAsKeyValue(array $array, string $key, string $value, bool $strict = false)
+    public static function searchHashAsKeyValue(array $array, string $key, string $value, bool $strict = false): ?array
     {
         if (empty($array)) {
             return null;
@@ -133,7 +133,7 @@ class CacheHelper
      * @param $options
      * @return mixed
      */
-    public static function overrideDefaults($defaults, $options)
+    public static function overrideDefaults($defaults, $options): mixed
     {
         $source = $defaults;
         array_walk($source, static function (&$default, $key) use ($options) {

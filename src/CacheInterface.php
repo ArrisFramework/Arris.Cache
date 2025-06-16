@@ -2,80 +2,75 @@
 
 namespace Arris\Cache;
 
+use Arris\Entity\Result;
+use Arris\Toolkit\RedisClient;
+use Arris\Toolkit\RedisClientException;
 use JsonException;
-use PDO;
 use Psr\Log\LoggerInterface;
+use RedisException;
 
+/**
+ * Практически, это враппер над редисом. Поэтому все действия с кэшем должны отражаться на редисе.
+ *
+ * Удаление ключа из кэша-репозитория = удалению ключа из редиса, потому что сам кэш это чисто отображение редиса на память
+ * с фоллбэком из правил.
+ *
+ * Не знаю, нужны ли нам методы, удаляющие данные только из кэша. Скорее всего нет. Или только как кастомные методы в хэлпере.
+ */
 interface CacheInterface
 {
-    public const RULE_SOURCE_SQL = 'sql';
-    public const RULE_SOURCE_CALLBACK = 'callback';
-    public const RULE_SOURCE_RAW = 'raw';
-    public const RULE_SOURCE_UNDEFINED = '';
-    
-    public const TIME_SECOND    = 1;
-    public const TIME_MINUTE    = self::TIME_SECOND * 60;
-    public const TIME_HOUR      = self::TIME_MINUTE * 60;
-    public const TIME_DAY       = self::TIME_HOUR * 12;
-    
-    public const TIME_FULL_DAY  = self::TIME_HOUR * 24;
-    public const TIME_MONTH     = self::TIME_FULL_DAY * 30;
-    public const TIME_YEAR      = self::TIME_MONTH * 12;
-    
-    public const REDIS_DEFAULT_HOST     = '127.0.0.1';
-    public const REDIS_DEFAULT_PORT     = 6379;
-    public const REDIS_DEFAULT_DB       = 0;
-    public const REDIS_DEFAULT_PASSWORD = null;
-    
+    public const REDIS_DEFAULT_HOST = '127.0.0.1';
+    public const REDIS_DEFAULT_PORT = 6379;
+    public const REDIS_DEFAULT_DB   = 0;
+
     /**
+     * Инициализирует кэш (репозиторий)
      *
-     * @param array<string, int> $credentials
-     * @param array<array> $rules
-     * @param $PDO
+     * @param string $redis_host
+     * @param int $redis_port
+     * @param int $redis_database
+     * @param bool $redis_enabled
+     * @param null $PDO
      * @param LoggerInterface|null $logger
+     *
+     * @throws RedisClientException
+     */
+    public static function init(
+        string  $redis_host = self::REDIS_DEFAULT_HOST,
+        int     $redis_port = self::REDIS_DEFAULT_PORT,
+        int     $redis_database = self::REDIS_DEFAULT_DB,
+        bool    $redis_enabled = true,
+        $PDO = null,
+        ?LoggerInterface $logger = null
+    );
+
+    /**
+     * Добавляет ПРАВИЛО: значение в репозиторий - по ключу из редиса или значение из fallback-функции
+     *
+     * @param $rule_name - ключ
+     * @param bool $enabled - включено ли правило
+     * @param string $source - источник данных: RULE_SOURCE_SQL, RULE_SOURCE_CALLBACK, RULE_SOURCE_RAW
+     * @param null $action - действие: SQL-запрос, коллбэк-функция или коллбэк-запись, сырое значение
+     * @param int $ttl - время жизни значения в секундах, 0 - вечно
+     *
+     * @return Result
      * @throws JsonException
+     * @throws RedisException
+     * @throws RedisClientException
      */
-    public static function init(array $credentials = [], array $rules = [], $PDO = null, ?LoggerInterface $logger = null);
+    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result;
 
     /**
-     * Добавляет в репозиторий массив правил
+     * Получает данные из кэша
      *
-     * @param array $rules
-     * @return void
-     * @throws JsonException
+     * @param string $key
+     * @param $default
+     * @return mixed
      */
-    public static function addRules(array $rules);
+    public static function get(string $key, $default = null): mixed;
 
     /**
-     * Добавляет в репозиторий новое ключ-значение (с логгированием)
-     *
-     * @param string $rule_name
-     * @param $rule_definition
-     * @return string
-     * @throws JsonException
-     */
-    public static function addRule(string $rule_name, $rule_definition):string;
-
-    /**
-     * Получает список ключей из репозитория кэша
-     * (имён ключей)
-     *
-     * @param bool $use_keys_from_redis
-     * @return array
-     */
-    public static function getAllKeys(bool $use_keys_from_redis): array;
-
-    /**
-     * Получает значение из репозитория
-     *
-     * @param $key
-     * @param null $default
-     * @return mixed|null
-     */
-    public static function get(string $key, $default = null);
-
-    /**
-     * Добавляет значение в репозиторий, удаляя старое
+     * Добавляет значение в репозиторий кэша, заменяет старое
      *
      * @param string $key
      * @param $data
@@ -83,7 +78,7 @@ interface CacheInterface
     public static function set(string $key, $data);
 
     /**
-     * Проверяет наличие ключа в репозитории
+     * Проверяет наличие данных в репозитории кеша
      *
      * @param string $key
      * @return bool
@@ -91,57 +86,62 @@ interface CacheInterface
     public static function check(string $key): bool;
 
     /**
-     * Удаляет ключ из репозитория
+     * Удаляем значение из репозитория кэша
      *
      * @param string $key
+     * @return void
      */
-    public static function unset(string $key);
-    
+    public static function unset(string $key):void;
+
     /**
-     * Удаляет ключ из репозитория и редиса
+     * Добавляет значение в редис и репозиторий кэша
+     *
+     * @param string $key_name
+     * @param $data
+     * @param int $ttl
+     * @param bool $use_json_encode
+     * @return bool
+     * @throws JsonException
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool;
+
+    /**
+     * Удаляет ключ из репозитория И редиса
+     *
      * Допустимо указание маски в ключе:
-     * `ar*`, `ar*[*`, `ar*\[*` и даже `*ore*`
+     * `article*`, и даже `*rticl*`
      * Маска `*` означает, очевидно, все ключи.
      *
      * @param string $key
-     * @param bool $clean_redis
-     * @return string
+     * @param bool $redis_update
+     * @throws RedisException
+     * @throws RedisClientException
      */
-    public static function flush(string $key, bool $clean_redis = true):string;
+    public static function drop(string $key, bool $redis_update = true);
 
     /**
      * Удаляет все ключи из репозитория и редиса
+     *
+     * @throws RedisClientException
+     * @throws RedisException
      */
-    public static function flushAll(string $mask = '*');
-    
-    /**
-     * Возвращает статус подключения к редису.
-     *
-     * @return bool
-     */
-    public static function isRedisConnected():bool;
-    
-    /**
-     * Возвращает redis коннектор. Метод НЕ проверят, состоялось ли подключение к редису, то есть
-     * вызывать его ОБЯЗАТЕЛЬНО после проверки isRedisConnected().
-     *
-     * В противном случае весьма вероятны эксепшены вида: call method on null или call undefined method
-     *
-     * Метод может вернуть NULL если коннект не установлен
-     *
-     * @return RedisClient|false|null
-     */
-    public static function getConnector();
+    public static function dropAll(bool $redis_update = true);
+
+    /* === РЕДИС ===  */
 
     /**
-     * Извлекает данные из редиса по ключу. Если передан второй аргумент false - не проводит json_decode
+     *  Извлекает данные из редиса по ключу, декодируя JSON
      *
      * @param string $key_name
-     * @param bool $use_json_decode
-     * @return mixed
-     * @throws JsonException
+     * @param bool $use_json_decode - false - не декодируем
+     * @return bool|mixed|string|null
+     * @throws RedisException
+     * @throws RedisClientException
+     * @throws \JsonException
      */
-    public static function redisFetch(string $key_name, bool $use_json_decode = true);
+    public static function redisFetch(string $key_name, bool $use_json_decode = true): mixed;
 
     /**
      * Кладёт данные в редис (и только в редис), обязательно json-изируя их.
@@ -153,11 +153,15 @@ interface CacheInterface
      * @param string $key_name
      * @param $data
      * @param int $ttl
+     * @param bool $use_json_encode
      * @return bool
+     *
      * @throws JsonException
+     * @throws RedisException
+     * @throws RedisClientException
      */
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $jsonize = true):bool;
-    
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool;
+
     /**
      * Удаляет данные в редисе по ключу
      *
@@ -167,17 +171,23 @@ interface CacheInterface
      *
      * @param string $key_name
      * @return array|bool
+     * @throws RedisException
+     * @throws RedisClientException
      */
-    public static function redisDel(string $key_name);
-    
+    public static function redisDel(string $key_name): bool|array;
+
     /**
      * Проверяет существование ключа в редисе
      *
-     * @param string $keyname
+     * @param string $key_name
      * @return bool
+     * @throws RedisException
+     * @throws RedisClientException
      */
-    public static function redisCheck(string $keyname):bool;
-    
+    public static function redisCheck(string $key_name):bool;
+
+    /* === СЧЕТЧИКИ === */
+
     /**
      * Добавляет счетчик (целое число) в кэш и редис (если подключен)
      * Если TTL 0 - ключ не истекает
@@ -186,6 +196,8 @@ interface CacheInterface
      * @param int $initial
      * @param int $ttl
      * @return int
+     * @throws RedisException
+     * @throws RedisClientException
      */
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int;
 
@@ -195,6 +207,8 @@ interface CacheInterface
      * @param string $key
      * @param int $diff
      * @return int
+     * @throws RedisException
+     * @throws RedisClientException
      */
     public static function incrCounter(string $key, int $diff = 1):int;
 
@@ -204,17 +218,43 @@ interface CacheInterface
      * @param string $key
      * @param int $diff
      * @return int
+     * @throws RedisException
+     * @throws RedisClientException
      */
     public static function decrCounter(string $key, int $diff = 1):int;
-    
+
     /**
      * Возвращает значение счетчика из редиса или кэша
      *
      * @param string $key
      * @param int $default
      * @return int
+     * @throws RedisException
+     * @throws RedisClientException
      */
     public static function getCounter(string $key, int $default = 0):int;
 
+    /**
+     * РЕДИС-хелпер
+     *
+     * Предоставляет статические методы, полные аналоги соответствующих методов из основного класса:
+     *
+     * Cache::redis()::fetch()
+     *
+     * ::check() - аналог redisCheck()
+     * ::fetch() - аналог redisFetch()
+     * ::push() - аналог redisPush()
+     * ::del() - аналог redisDel()
+     *
+     * @return RedisHelper
+     */
+    public static function redis(): RedisHelper;
+
+    /**
+     * Возвращает прямой коннектор к редис-клиенту
+     *
+     * @return RedisClient
+     */
+    public static function getConnector(): RedisClient;
 
 }
