@@ -2,6 +2,8 @@
 
 namespace Arris\Cache\Exceptions;
 
-class CacheCallbackException  extends \RuntimeException {
+use RuntimeException;
+
+class CacheCallbackException  extends RuntimeException {
 
 }

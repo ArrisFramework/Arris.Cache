@@ -49,6 +49,16 @@ Cache::addRule(
     action: [ 1 => 2, 3 => "b"]
 );
 
+var_dump();
+
+var_dump(
+    Cache::redis()->keys('*')
+);
+
+Cache::redisPush("something", [ 1 => 2, 3 => "b"]);
+Cache::redis()->push("something_2", [ 1 => 2, 3 => "b"]);
+
+
 ```
 
 Правило типа 'callback' может быть:
@@ -60,6 +70,50 @@ Cache::addRule(
 
 Параметры передаются **всегда** массивом.
 
+# TODO
+
+- нужен ли кастомный декодер json?
+
 
 --- 
-NB: Да, в PHP возможен механизм A::B()::C()
+
+# ToDo - legacy code
+
+```php
+
+public static function flush(string $key, bool $clean_redis = true)
+{
+    $deleted = [];
+    if (strpos($key, '*') === false) {
+        self::unset($key);
+        if (self::$redis_connector && $clean_redis) {
+            self::$redis_connector->del($key);
+        }
+        return $key;
+    } else {
+        $custom_mask = self::createMask($key);
+        $custom_list = preg_grep($custom_mask, self::getAllKeys());
+        foreach ($custom_list as $k) {
+            $deleted[] = self::flush($k, $clean_redis);
+        }
+        // return $custom_mask;
+        return $deleted;
+    }
+}
+
+```
+
+```php
+namespace Arris\Cache;
+
+/**
+ * Interface, not trait ('cause constants in traits supported since PHP 8.2)
+ */
+interface RedisDefaultCredentials
+{
+    public const REDIS_DEFAULT_HOST     = '127.0.0.1';
+    public const REDIS_DEFAULT_PORT     = 6379;
+    public const REDIS_DEFAULT_DB       = 0;
+    public const REDIS_DEFAULT_PASSWORD = null;
+}
+```

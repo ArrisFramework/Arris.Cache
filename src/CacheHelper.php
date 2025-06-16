@@ -4,8 +4,14 @@ namespace Arris\Cache;
 
 use Arris\Cache\Exceptions\CacheCallbackException;
 use JsonException;
+use function class_exists;
+use function count;
+use function explode;
+use function is_string;
 use function mb_strpos;
 use function array_filter;
+use function method_exists;
+use function strpos;
 
 class CacheHelper
 {
@@ -192,38 +198,38 @@ class CacheHelper
         if (is_array($actor)) {
             $handler = $actor[0];
             $params
-                = \count($actor) > 1
+                = count($actor) > 1
                 ? $actor[1]
                 : [];
 
-            if (!\is_string($handler)) {
+            if (!is_string($handler)) {
                 throw new CacheCallbackException("First argument of callback array is NOT a string");
             }
 
-            if (\strpos($handler, '@') > 0) {
+            if (strpos($handler, '@') > 0) {
                 // dynamic class
-                [$class, $method] = \explode('@', $handler, 2);
+                [$class, $method] = explode('@', $handler, 2);
 
-                if (!\class_exists($class)) {
+                if (!class_exists($class)) {
                     $logger->error("Class {$class} not defined.", [ $class ]);
                     throw new CacheCallbackException("Class {$class} not defined.", 500);
                 }
 
-                if (!\method_exists($class, $method)) {
+                if (!method_exists($class, $method)) {
                     $logger->error("Method {$method} not declared at {$class} class.", [ $class, $method ]);
                     throw new CacheCallbackException("Method {$method} not declared at {$class} class", 500);
                 }
 
                 $actor = [ new $class, $method ];
-            } elseif (\strpos($handler, '::') > 0) {
+            } elseif (strpos($handler, '::') > 0) {
                 [$class, $method] = explode('::', $handler, 2);
 
-                if (!\class_exists($class)) {
+                if (!class_exists($class)) {
                     $logger->error("Class {$class} not defined.", [ $class ]);
                     throw new CacheCallbackException("Class {$class} not defined.", 500);
                 }
 
-                if (!\method_exists($class, $method)) {
+                if (!method_exists($class, $method)) {
                     $logger->error("Static method {$method} not declared at {$class} class.", [ $class, $method ]);
                     throw new CacheCallbackException("Static method {$method} not declared at {$class} class", 500);
                 }

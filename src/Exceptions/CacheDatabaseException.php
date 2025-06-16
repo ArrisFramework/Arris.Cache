@@ -2,6 +2,8 @@
 
 namespace Arris\Cache\Exceptions;
 
-class CacheDatabaseException  extends \RuntimeException {
+use RuntimeException;
+
+class CacheDatabaseException  extends RuntimeException {
 
 }

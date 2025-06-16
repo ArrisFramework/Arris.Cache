@@ -237,14 +237,15 @@ interface CacheInterface
     /**
      * РЕДИС-хелпер
      *
-     * Предоставляет статические методы, полные аналоги соответствующих методов из основного класса:
+     * Предоставляет методы, полные аналоги соответствующих методов из основного класса:
      *
-     * Cache::redis()::fetch()
+     * Cache::redis()->fetch()
      *
-     * ::check() - аналог redisCheck()
-     * ::fetch() - аналог redisFetch()
-     * ::push() - аналог redisPush()
-     * ::del() - аналог redisDel()
+     * check() - аналог redisCheck()
+     * fetch() - аналог redisFetch()
+     * push() - аналог redisPush()
+     * del() - аналог redisDel()
+     * keys() - аналога нет
      *
      * @return RedisHelper
      */

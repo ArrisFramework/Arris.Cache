@@ -1,5 +1,4 @@
 /vendor/
 
 composer.lock
-test*.php
 *.log

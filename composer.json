@@ -22,7 +22,7 @@
         "ext-redis": "*",
         "psr/log": "*",
         "karelwintersky/arris.entity": "^1.0",
-        "karelwintersky/arris.toolkit.nanoredis": "^0.999.0"
+        "karelwintersky/arris.toolkit.nanoredis": "^1"
     },
     "require-dev": {
         "karelwintersky/arris": "^2",
