@@ -253,7 +253,7 @@ class Cache implements CacheInterface
     {
         self::$logger->info("[dropAll] clearing cache");
         self::$repository = [];
-        if ($redis_update) {
+        if ($redis_update && self::$is_redis_connected) {
             self::$logger->info("[dropAll] flushing REDIS database");
             self::$redis->flushDatabase();
         }
