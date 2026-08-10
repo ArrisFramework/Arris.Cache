@@ -116,7 +116,7 @@ class Cache implements CacheInterface
             return $result;
         }
 
-        if (empty($action)) {
+        if (is_null($action)) {
             $result->success("[ERROR] Key found, but action is empty");
             self::$logger->info("[addRule] Error: empty action, pushed null to cache");
             self::set($rule_name, null);
@@ -129,7 +129,7 @@ class Cache implements CacheInterface
             case self::RULE_SOURCE_SQL: {
                 self::$logger->info("[addRule] RULE SOURCE SQL");
 
-                // коннекта к БД нет: кладем в репозиторий null и продолжаем
+                // Коннекта к БД нет: кладем в репозиторий null и продолжаем
                 if (is_null(self::$pdo)) {
                     $result->error("[ERROR] Key {$rule_name} not found, action is SQL, but PDO not connected");
                     self::$logger->info("[addRule] Error: key {$rule_name} not found, action is SQL, but PDO not connected");
@@ -356,7 +356,7 @@ class Cache implements CacheInterface
                 self::$redis->expire($key, $ttl);
             }
 
-            return self::$redis->get($key);
+            return (int)self::$redis->get($key);
         }
         return $initial;
     }
@@ -371,7 +371,9 @@ class Cache implements CacheInterface
         }
 
         if (self::$is_redis_connected) {
-            self::$redis->incrBy($key, $diff);
+            $value = (int)self::$redis->incrBy($key, $diff);
+            self::$repository[ $key ] = $value;
+            return $value;
         }
 
         self::$repository[ $key ] += $diff;
@@ -388,7 +390,9 @@ class Cache implements CacheInterface
         }
 
         if (self::$is_redis_connected) {
-            self::$redis->decrBy($key, $diff);
+            $value = (int)self::$redis->decrBy($key, $diff);
+            self::$repository[ $key ] = $value;
+            return $value;
         }
 
         self::$repository[ $key ] -= $diff;
@@ -401,7 +405,13 @@ class Cache implements CacheInterface
         self::$logger->info("[getCounter] started");
 
         if (self::$is_redis_connected) {
-            return self::$redis->get($key);
+            $value = self::$redis->get($key);
+
+            if ($value !== false) {
+                $value = (int)$value;
+                self::$repository[ $key ] = $value;
+                return $value;
+            }
         }
 
         return self::get($key, $default);
