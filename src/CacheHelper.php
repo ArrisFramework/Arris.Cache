@@ -191,60 +191,68 @@ class CacheHelper
             ];
         }
 
-        $params = null;
+        // Строка-имя ('customFunction', 'Class@method', 'Class::method')
+        // нормализуется в форму массива
+        if (is_string($actor)) {
+            $actor = [ $actor ];
+        }
+
+        if (!is_array($actor)) {
+            return [
+                $actor, []
+            ];
+        }
 
         // 0 - имя класса + метода
         // 1 - массив параметров
-        if (is_array($actor)) {
-            $handler = $actor[0];
-            $params
-                = count($actor) > 1
-                ? $actor[1]
-                : [];
+        $handler = $actor[0];
+        $params
+            = count($actor) > 1
+            ? $actor[1]
+            : [];
 
-            if (!is_string($handler)) {
-                throw new CacheCallbackException("First argument of callback array is NOT a string");
+        if (!is_string($handler)) {
+            throw new CacheCallbackException("First argument of callback array is NOT a string");
+        }
+
+        if (strpos($handler, '@') > 0) {
+            // dynamic class
+            [$class, $method] = explode('@', $handler, 2);
+
+            if (!class_exists($class)) {
+                $logger->error("Class {$class} not defined.", [ $class ]);
+                throw new CacheCallbackException("Class {$class} not defined.", 500);
             }
 
-            if (strpos($handler, '@') > 0) {
-                // dynamic class
-                [$class, $method] = explode('@', $handler, 2);
-
-                if (!class_exists($class)) {
-                    $logger->error("Class {$class} not defined.", [ $class ]);
-                    throw new CacheCallbackException("Class {$class} not defined.", 500);
-                }
-
-                if (!method_exists($class, $method)) {
-                    $logger->error("Method {$method} not declared at {$class} class.", [ $class, $method ]);
-                    throw new CacheCallbackException("Method {$method} not declared at {$class} class", 500);
-                }
-
-                $actor = [ new $class, $method ];
-            } elseif (strpos($handler, '::') > 0) {
-                [$class, $method] = explode('::', $handler, 2);
-
-                if (!class_exists($class)) {
-                    $logger->error("Class {$class} not defined.", [ $class ]);
-                    throw new CacheCallbackException("Class {$class} not defined.", 500);
-                }
-
-                if (!method_exists($class, $method)) {
-                    $logger->error("Static method {$method} not declared at {$class} class.", [ $class, $method ]);
-                    throw new CacheCallbackException("Static method {$method} not declared at {$class} class", 500);
-                }
-
-                $actor = [ $class, $method ];
-            } else {
-                // function
-                if (!function_exists($handler)){
-                    $logger->error("Handler function {$handler} not found", [ ]);
-                    throw new CacheCallbackException("Handler function {$handler} not found", 500);
-                }
-
-                $actor = $handler;
+            if (!method_exists($class, $method)) {
+                $logger->error("Method {$method} not declared at {$class} class.", [ $class, $method ]);
+                throw new CacheCallbackException("Method {$method} not declared at {$class} class", 500);
             }
-        } // is_array
+
+            $actor = [ new $class, $method ];
+        } elseif (strpos($handler, '::') > 0) {
+            [$class, $method] = explode('::', $handler, 2);
+
+            if (!class_exists($class)) {
+                $logger->error("Class {$class} not defined.", [ $class ]);
+                throw new CacheCallbackException("Class {$class} not defined.", 500);
+            }
+
+            if (!method_exists($class, $method)) {
+                $logger->error("Static method {$method} not declared at {$class} class.", [ $class, $method ]);
+                throw new CacheCallbackException("Static method {$method} not declared at {$class} class", 500);
+            }
+
+            $actor = [ $class, $method ];
+        } else {
+            // function
+            if (!function_exists($handler)){
+                $logger->error("Handler function {$handler} not found", [ ]);
+                throw new CacheCallbackException("Handler function {$handler} not found", 500);
+            }
+
+            $actor = $handler;
+        }
 
         return [
             $actor, $params
