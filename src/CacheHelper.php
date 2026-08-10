@@ -53,7 +53,7 @@ class CacheHelper
      * @param bool $strict -- использовать ли строгое сравнение?
      * @return array|null
      */
-    public static function searchHashAsKeyValue(array $array, string $key, string $value, bool $strict = false): ?array
+    public static function searchHashAsKeyValue(array $array, string $key, mixed $value, bool $strict = false): ?array
     {
         if (empty($array)) {
             return null;
@@ -210,6 +210,12 @@ class CacheHelper
             = count($actor) > 1
             ? $actor[1]
             : [];
+
+        if ($handler instanceof \Closure) {
+            return [
+                $handler, $params
+            ];
+        }
 
         if (!is_string($handler)) {
             throw new CacheCallbackException("First argument of callback array is NOT a string");

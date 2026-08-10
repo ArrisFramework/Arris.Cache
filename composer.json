@@ -8,6 +8,11 @@
             "Arris\\Cache\\": [ "src/" ]
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Arris\\Cache\\Tests\\": [ "tests/" ]
+        }
+    },
     "authors": [
         {
             "name": "Karel Wintersky",
@@ -15,13 +20,13 @@
         }
     ],
     "require": {
-        "php": "^8",
+        "php": "^8.2",
         "ext-pdo": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
         "ext-redis": "*",
         "psr/log": "*",
-        "karelwintersky/arris.entity": "^1.0",
+        "karelwintersky/arris.entity": "^2",
         "karelwintersky/arris.toolkit.nanoredis": "^1"
     },
     "require-dev": {
@@ -29,6 +34,7 @@
         "karelwintersky/arris.helpers": "^0",
         "karelwintersky/arris.database": "^2",
         "karelwintersky/arris.logger": "^2",
-        "vlucas/phpdotenv": "^3.3"
+        "vlucas/phpdotenv": "^3.3",
+        "phpunit/phpunit": "^10.5"
     }
 }
