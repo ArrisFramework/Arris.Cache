@@ -22,7 +22,7 @@ class Cache implements CacheInterface
     public const TIME_SECOND    = 1;
     public const TIME_MINUTE    = self::TIME_SECOND * 60;
     public const TIME_HOUR      = self::TIME_MINUTE * 60;
-    public const TIME_DAY       = self::TIME_HOUR * 12;
+    public const TIME_DAY       = self::TIME_HOUR * 24;
     public const TIME_FULL_DAY  = self::TIME_HOUR * 24;
     public const TIME_MONTH     = self::TIME_FULL_DAY * 30;
     public const TIME_YEAR      = self::TIME_MONTH * 12;
