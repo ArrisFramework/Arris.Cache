@@ -33,6 +33,7 @@ interface CacheInterface
      * @param null $PDO
      * @param LoggerInterface|null $logger
      *
+     * @return Result
      * @throws RedisClientException
      */
     public static function init(
@@ -42,7 +43,7 @@ interface CacheInterface
         bool    $redis_enabled = true,
         $PDO = null,
         ?LoggerInterface $logger = null
-    );
+    ): Result;
 
     /**
      * Добавляет ПРАВИЛО: значение в репозиторий - по ключу из редиса или значение из fallback-функции
@@ -100,12 +101,12 @@ interface CacheInterface
      * @param $data
      * @param int $ttl
      * @param bool $use_json_encode
-     * @return bool
+     * @return Result
      * @throws JsonException
      * @throws RedisClientException
      * @throws RedisException
      */
-    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool;
+    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result;
 
     /**
      * Удаляет ключ из репозитория И редиса
@@ -116,18 +117,21 @@ interface CacheInterface
      *
      * @param string $key
      * @param bool $redis_update
+     * @return Result
      * @throws RedisException
      * @throws RedisClientException
      */
-    public static function drop(string $key, bool $redis_update = true);
+    public static function drop(string $key, bool $redis_update = true): Result;
 
     /**
      * Удаляет все ключи из репозитория и редиса
      *
+     * @param bool $redis_update
+     * @return Result
      * @throws RedisClientException
      * @throws RedisException
      */
-    public static function dropAll(bool $redis_update = true);
+    public static function dropAll(bool $redis_update = true): Result;
 
     /* === РЕДИС ===  */
 
@@ -148,33 +152,33 @@ interface CacheInterface
      *
      * Если TTL 0 - ключ не истекает
      *
-     * Возвращает TRUE если удалось, FALSE - если редис отключен или данные в редисе "не оказались"
+     * Возвращает Result: is_success - удалось ли записать в редис
      *
      * @param string $key_name
      * @param $data
      * @param int $ttl
      * @param bool $use_json_encode
-     * @return bool
+     * @return Result
      *
      * @throws JsonException
      * @throws RedisException
      * @throws RedisClientException
      */
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool;
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result;
 
     /**
      * Удаляет данные в редисе по ключу
      *
      * Допустимо удаление по маске
      *
-     * Возвращает список ключей, которые попытались удалить
+     * Возвращает Result, в `raw_array` — список удалённых ключей
      *
      * @param string $key_name
-     * @return array|bool
+     * @return Result
      * @throws RedisException
      * @throws RedisClientException
      */
-    public static function redisDel(string $key_name): bool|array;
+    public static function redisDel(string $key_name): Result;
 
     /**
      * Проверяет существование ключа в редисе

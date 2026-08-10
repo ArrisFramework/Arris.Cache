@@ -14,6 +14,8 @@ use RedisException;
 
 use function array_key_exists;
 use function call_user_func_array;
+use function count;
+use function implode;
 use function is_null;
 use function json_decode;
 
@@ -43,8 +45,10 @@ class Cache implements CacheInterface
     private static RedisHelper $redis_helper;
 
 
-    public static function init(string $redis_host = self::REDIS_DEFAULT_HOST, int $redis_port = self::REDIS_DEFAULT_PORT, int $redis_database = self::REDIS_DEFAULT_DB, bool $redis_enabled = true, $PDO = null, ?LoggerInterface $logger = null)
+    public static function init(string $redis_host = self::REDIS_DEFAULT_HOST, int $redis_port = self::REDIS_DEFAULT_PORT, int $redis_database = self::REDIS_DEFAULT_DB, bool $redis_enabled = true, $PDO = null, ?LoggerInterface $logger = null): Result
     {
+        $result = new Result();
+
         self::$logger = is_null($logger) ? new NullLogger() : $logger;
         self::$is_redis_connected = false;
         self::$pdo = $PDO;
@@ -77,9 +81,13 @@ class Cache implements CacheInterface
                 self::$redis->connect();
                 self::$is_redis_connected = true;
                 self::$logger->info("[init] REDIS Connected");
+                $result->success("REDIS Connected");
             } catch (RedisClientException|RedisException $e) {
                 self::$logger->info("Connection error", [ $e->getCode(), $e->getMessage(), $e->getTraceAsString() ]);
+                $result->error("REDIS connection error: " . $e->getMessage(), (int)$e->getCode());
             }
+        } else {
+            $result->success("Redis disabled");
         }
 
         if (!is_null($PDO)) {
@@ -87,6 +95,8 @@ class Cache implements CacheInterface
         }
 
         self::$redis_helper = new RedisHelper(self::$redis, self::$is_redis_connected, self::$logger);
+
+        return $result;
     }
 
 
@@ -215,7 +225,7 @@ class Cache implements CacheInterface
         return $default;
     }
 
-    public static function set(string $key, $data)
+    public static function set(string $key, $data): void
     {
         self::unset($key);
         self::$repository[ $key ] = $data;
@@ -240,106 +250,107 @@ class Cache implements CacheInterface
     }
 
 
-    public static function drop(string $key, bool $redis_update = true)
+    public static function drop(string $key, bool $redis_update = true): Result
     {
+        $result = new Result();
         self::unset($key);
+
         if ($redis_update) {
             self::$logger->info("[drop] removing {$key} from REDIS");
-            self::redisDel($key);
+            $deleted = self::redisDel($key);
+
+            if ($deleted->is_success) {
+                $result->success("Key `{$key}` dropped from cache, " . count($deleted->raw_array) . " redis key(s) removed");
+            } else {
+                $result->error("Key `{$key}` dropped from cache, but redis removal failed: " . $deleted->getMessage());
+            }
+        } else {
+            $result->success("Key `{$key}` dropped from cache, redis untouched");
         }
+
+        return $result;
     }
 
-    public static function dropAll(bool $redis_update = true)
+    public static function dropAll(bool $redis_update = true): Result
     {
+        $result = new Result();
         self::$logger->info("[dropAll] clearing cache");
         self::$repository = [];
+
         if ($redis_update && self::$is_redis_connected) {
             self::$logger->info("[dropAll] flushing REDIS database");
             self::$redis->flushDatabase();
+            $result->success("Cache cleared, REDIS database flushed");
+        } elseif ($redis_update) {
+            $result->success("Cache cleared, REDIS not connected");
+        } else {
+            $result->success("Cache cleared, REDIS untouched");
         }
+
+        return $result;
     }
 
 
     public static function redisFetch(string $key_name, bool $use_json_decode = true): mixed
     {
-        /*self::$logger->info("[redisFetch] started");
-
-        if (self::$is_redis_connected === false) {
-            self::$logger->info("[redisFetch] ERROR: REDIS not connected");
-            return null;
-        }
-
-        $value = self::$redis->get($key_name, false);
-        self::$logger->info("[redisFetch] Data from REDIS recieved");
-
-        if ($use_json_decode && !empty($value)) {
-            self::$logger->info("[redisFetch] Decoding JSON data");
-            $value = \json_decode($value, true, 512, JSON_THROW_ON_ERROR);
-        }
-
-        return $value;*/
         return self::redis()->fetch($key_name, $use_json_decode);
     }
 
-    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true):bool
+    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result
     {
+        $result = new Result();
         self::set($key_name, $data);
-        return self::redis()->push($key_name, $data, $ttl, $use_json_encode);
-    }
 
-    /* == REDIS ONLY == */
+        $pushed = self::redis()->push($key_name, $data, $ttl, $use_json_encode);
 
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): bool
-    {
-        /*self::$logger->info("[redisPush] started");
-
-        if (self::$is_redis_connected === false) {
-            self::$logger->info("[redisPush] ERROR: REDIS not connected");
-            return false;
-        }
-
-        self::$redis->set($key_name, ($use_json_encode ? CacheHelper::jsonize($data) : $data));
-        self::$logger->info("[redisPush] Data pushed to REDIS");
-
-        if ($ttl > 0) {
-            self::$redis->expire($key_name, $ttl);
-            self::$logger->info("[redisFetch] TTL {$ttl} seconds");
+        if ($pushed) {
+            $result->success("Pushed `{$key_name}` to cache and REDIS");
         } else {
-            self::$logger->info("[redisFetch] TTL unlimited");
+            $result->error("Pushed `{$key_name}` to cache, but REDIS push failed");
         }
 
-        if (self::$redis->exists($key_name)) {
-            self::$logger->info("[redisFetch] Post-push check: SUCCESS");
-            return true;
-        }
-        self::$logger->info("[redisFetch] Post-push check: ERROR");
-
-        return false;*/
-        return self::redis()->push($key_name, $data, $ttl, $use_json_encode);
+        return $result;
     }
 
-    public static function redisDel(string $key_name): bool|array
-    {
-        /*self::$logger->info("[redisDel] started");
+    /* == REDIS ACCESS HELPERS == */
 
-        if (self::$is_redis_connected === false) {
-            return false;
+    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result
+    {
+        $pushed = self::redis()->push($key_name, $data, $ttl, $use_json_encode);
+
+        $result = new Result();
+        if ($pushed) {
+            $result->success("Pushed `{$key_name}` to REDIS");
+        } else {
+            $result->error("Push `{$key_name}` to REDIS failed");
         }
 
-        $deleted = self::$redis->delete($key_name);
-        ksort($deleted);
+        return $result;
+    }
 
-        return $deleted;*/
-        return self::redis()->del($key_name);
+    public static function redisDel(string $key_name): Result
+    {
+        $result = new Result();
+
+        if (!self::$is_redis_connected) {
+            $result->error("REDIS not connected");
+            return $result;
+        }
+
+        $deleted = self::redis()->del($key_name);
+        $result->raw_array = $deleted;
+
+        if (empty($deleted)) {
+            $result->success("No keys matched mask `{$key_name}`");
+        } else {
+            $result->success("Removed " . count($deleted) . " keys by mask `{$key_name}`: " . implode(', ', $deleted));
+        }
+
+        return $result;
     }
 
     public static function redisCheck(string $key_name): bool
     {
-        /*if (self::$is_redis_connected === false) {
-            return false;
-        }
-
-        return self::$redis->exists($key_name);*/
         return self::redis()->check($key_name);
     }
 
