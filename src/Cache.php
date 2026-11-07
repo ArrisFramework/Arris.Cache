@@ -130,9 +130,8 @@ class Cache implements CacheInterface
         }
 
         if (is_null($action)) {
-            $result->success("[ERROR] Key found, but action is empty");
-            self::$logger->info("[addRule] Error: empty action, pushed null to cache");
-            self::set($rule_name, null);
+            $result->error("Rule `{$rule_name}` has empty action, nothing cached");
+            self::$logger->info("[addRule] Rule `{$rule_name}` has empty action, nothing cached");
             return $result;
         }
 

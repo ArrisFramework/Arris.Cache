@@ -82,9 +82,9 @@ class CacheAddRuleTest extends AbstractCacheTestCase
     {
         $result = Cache::addRule('rule', source: Cache::RULE_SOURCE_RAW, action: null);
 
-        $this->assertTrue($result->is_success);
-        $this->assertStringContainsString('action is empty', $result->getMessage());
-        $this->assertTrue(Cache::check('rule'));
+        $this->assertFalse($result->is_success);
+        $this->assertStringContainsString('empty action', $result->getMessage());
+        $this->assertFalse(Cache::check('rule'));
         $this->assertNull(Cache::get('rule'));
     }
 

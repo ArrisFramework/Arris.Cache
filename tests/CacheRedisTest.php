@@ -190,6 +190,16 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertStringContainsString('from redis', $result->getMessage());
     }
 
+    public function testAddRuleWithNullActionDoesNotCache(): void
+    {
+        $result = Cache::addRule('empty', source: Cache::RULE_SOURCE_RAW, action: null);
+
+        $this->assertFalse($result->is_success);
+        $this->assertStringContainsString('empty action', $result->getMessage());
+        $this->assertFalse(Cache::check('empty'));
+        $this->assertFalse(Cache::redisCheck('empty'));
+    }
+
     public function testAddRuleComputesAndMirrorsToRedisWhenKeyAbsent(): void
     {
         $result = Cache::addRule(
