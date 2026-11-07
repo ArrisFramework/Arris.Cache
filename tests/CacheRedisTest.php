@@ -55,6 +55,31 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertSame('{"a":1}', Cache::redisFetch('data', use_json_decode: false));
     }
 
+    public function testRedisFetchDecodesFalsyJsonValues(): void
+    {
+        Cache::redisPush('zero', 0);
+        Cache::redisPush('zero_float', 0.0);
+        Cache::redisPush('false_value', false);
+        Cache::redisPush('empty_string', '');
+
+        $this->assertSame(0, Cache::redisFetch('zero'));
+        $this->assertSame(0.0, Cache::redisFetch('zero_float'));
+        $this->assertFalse(Cache::redisFetch('false_value'));
+        $this->assertSame('', Cache::redisFetch('empty_string'));
+    }
+
+    public function testRedisFetchReturnsRawEmptyStringWithoutDecoding(): void
+    {
+        Cache::redisPush('raw_empty', '', use_json_encode: false);
+
+        $this->assertSame('', Cache::redisFetch('raw_empty'));
+    }
+
+    public function testRedisFetchReturnsNullForMissingKey(): void
+    {
+        $this->assertNull(Cache::redisFetch('missing_key'));
+    }
+
     public function testRedisPushWithoutJsonEncode(): void
     {
         Cache::redisPush('raw', 'plain', use_json_encode: false);

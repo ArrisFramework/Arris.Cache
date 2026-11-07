@@ -48,9 +48,17 @@ class RedisHelper implements RedisHelperInterface
         }
 
         $value = $this->redis->get($key_name, false);
+
+        if ($value === false) {
+            $this->logger->info("[redis][fetch] Key not found in REDIS");
+            return null;
+        }
+
         $this->logger->info("[redis][fetch] Data from REDIS received");
 
-        if ($use_json_decode && !empty($value)) {
+        // Пустая строка — не JSON; пропускаем декодирование, чтобы не бросать
+        // JsonException на значениях, записанных с use_json_encode=false.
+        if ($use_json_decode && $value !== '') {
             $this->logger->info("[redis][fetch] Decoding JSON data");
             $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
         }
