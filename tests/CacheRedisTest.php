@@ -112,6 +112,23 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertFalse(Cache::redisCheck('key'));
     }
 
+    public function testDropByMaskRemovesFromRepositoryAndRedis(): void
+    {
+        Cache::push('item_1', 'a');
+        Cache::push('item_2', 'b');
+        Cache::push('other', 'c');
+
+        $result = Cache::drop('item_*');
+
+        $this->assertTrue($result->is_success);
+        $this->assertFalse(Cache::check('item_1'));
+        $this->assertFalse(Cache::check('item_2'));
+        $this->assertTrue(Cache::check('other'));
+        $this->assertFalse(Cache::redisCheck('item_1'));
+        $this->assertFalse(Cache::redisCheck('item_2'));
+        $this->assertTrue(Cache::redisCheck('other'));
+    }
+
     public function testDropAllFlushesRedis(): void
     {
         Cache::redisPush('a', 1);

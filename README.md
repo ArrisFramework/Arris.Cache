@@ -86,7 +86,7 @@ $districts = Cache::get('districts');
 - `customFunction`
 - массив `[handler, params]` — параметры передаются **всегда** массивом; `handler` может быть строкой или `Closure`
 
-## Репозиторий
+## Репозиторий (кэш над редисом)
 
 ```php
 Cache::set(string $key, $data): void          // записать значение
@@ -96,6 +96,8 @@ Cache::unset(string $key): void               // удалить из репоз�
 Cache::drop(string $key, bool $redis_update = true): Result // удалить из репозитория (+ Redis)
 Cache::dropAll(bool $redis_update = true): Result           // очистить всё (+ Redis)
 ```
+
+В `drop()` допустима glob-маска (`item_*`, `item_?`, `*rticl*`); маска применяется и к репозиторию, и к Redis.
 
 ## Redis
 

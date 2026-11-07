@@ -13,11 +13,14 @@ use Arris\Toolkit\RedisClientException;
 use RedisException;
 
 use function array_key_exists;
+use function array_keys;
 use function call_user_func_array;
 use function count;
+use function fnmatch;
 use function implode;
 use function is_null;
 use function json_decode;
+use function strpbrk;
 
 class Cache implements CacheInterface
 {
@@ -253,22 +256,64 @@ class Cache implements CacheInterface
     public static function drop(string $key, bool $redis_update = true): Result
     {
         $result = new Result();
-        self::unset($key);
+        $dropped = self::dropFromRepository($key);
+        $dropped_message = count($dropped) . " cache key(s) removed";
 
         if ($redis_update) {
             self::$logger->info("[drop] removing {$key} from REDIS");
             $deleted = self::redisDel($key);
 
             if ($deleted->is_success) {
-                $result->success("Key `{$key}` dropped from cache, " . count($deleted->raw_array) . " redis key(s) removed");
+                $result->success("Key `{$key}` dropped from cache, {$dropped_message}, " . count($deleted->raw_array) . " redis key(s) removed");
             } else {
-                $result->error("Key `{$key}` dropped from cache, but redis removal failed: " . $deleted->getMessage());
+                $result->error("Key `{$key}` dropped from cache, {$dropped_message}, but redis removal failed: " . $deleted->getMessage());
             }
         } else {
-            $result->success("Key `{$key}` dropped from cache, redis untouched");
+            $result->success("Key `{$key}` dropped from cache, {$dropped_message}, redis untouched");
         }
 
         return $result;
+    }
+
+    /**
+     * Удаляет ключи из репозитория по имени или маске (glob: `*`, `?`, `[...]`).
+     *
+     * Маска трактуется так же, как в Redis: `drop('article*')` удаляет все
+     * подходящие ключи, `drop('article')` — только точное совпадение.
+     *
+     * Полный перебор ключей выполняется только если в шаблоне есть glob-символы
+     * (`*`, `?`, `[`); для точного имени используется прямое обращение по ключу.
+     *
+     * @param string $pattern
+     * @return array Список удалённых ключей
+     */
+    private static function dropFromRepository(string $pattern): array
+    {
+        $dropped = [];
+
+        // проверяем, содержит ли паттерн спецсимволы отвечающие за паттерн перебора
+        // Если нет - это ключ с "прямым" именем, его и удаляем.
+        if (strpbrk($pattern, '*?[') === false) {
+            if (array_key_exists($pattern, self::$repository)) {
+                unset(self::$repository[$pattern]);
+                $dropped[] = $pattern;
+            }
+        } else {
+            foreach (array_keys(self::$repository) as $repository_key) {
+                if (!fnmatch($pattern, (string)$repository_key)) {
+                    continue;
+                }
+
+                unset(self::$repository[$repository_key]);
+                $dropped[] = $repository_key;
+            }
+        }
+
+        if (!empty($dropped)) {
+            self::$logger->info("[drop] removed from cache repository", [ $dropped ]);
+        }
+
+        return $dropped;
     }
 
     public static function dropAll(bool $redis_update = true): Result

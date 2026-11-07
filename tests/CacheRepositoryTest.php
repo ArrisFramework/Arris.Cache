@@ -65,6 +65,56 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertStringContainsString('redis untouched', $result->getMessage());
     }
 
+    public function testDropByMaskRemovesMatchingRepositoryKeys(): void
+    {
+        Cache::set('item_1', 1);
+        Cache::set('item_2', 2);
+        Cache::set('other', 3);
+
+        $result = Cache::drop('item_*', redis_update: false);
+
+        $this->assertTrue($result->is_success);
+        $this->assertFalse(Cache::check('item_1'));
+        $this->assertFalse(Cache::check('item_2'));
+        $this->assertTrue(Cache::check('other'));
+        $this->assertStringContainsString('2 cache key(s) removed', $result->getMessage());
+    }
+
+    public function testDropSingleCharMaskRemovesMatchingRepositoryKeys(): void
+    {
+        Cache::set('item_1', 1);
+        Cache::set('item_2', 2);
+
+        Cache::drop('item_?', redis_update: false);
+
+        $this->assertFalse(Cache::check('item_1'));
+        $this->assertFalse(Cache::check('item_2'));
+    }
+
+    public function testDropCharClassMaskRemovesMatchingRepositoryKeys(): void
+    {
+        Cache::set('user_1', 1);
+        Cache::set('user_2', 2);
+        Cache::set('user_a', 'a');
+
+        Cache::drop('user_[0-9]', redis_update: false);
+
+        $this->assertFalse(Cache::check('user_1'));
+        $this->assertFalse(Cache::check('user_2'));
+        $this->assertTrue(Cache::check('user_a'));
+    }
+
+    public function testDropExactKeyDoesNotTouchSimilarKeys(): void
+    {
+        Cache::set('key', 1);
+        Cache::set('key_2', 2);
+
+        Cache::drop('key', redis_update: false);
+
+        $this->assertFalse(Cache::check('key'));
+        $this->assertTrue(Cache::check('key_2'));
+    }
+
     public function testDropWithRedisUpdateWhenNotConnectedDoesNotThrow(): void
     {
         Cache::set('key', 'value');
