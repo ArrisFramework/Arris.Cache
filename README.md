@@ -76,6 +76,7 @@ $districts = Cache::get('districts');
   - `RULE_SOURCE_SQL` (`'sql'`) — `$pdo->query($action)->fetchAll()`; `PDOException` оборачивается в `CacheDatabaseException`;
   - `RULE_SOURCE_CALLBACK` (`'callback'`) — вызов коллбэка;
   - `RULE_SOURCE_RAW` (`'raw'`) — значение as-is.
+- `$source` по умолчанию — `''` (`RULE_SOURCE_UNDEFINED`), это то же самое, что `RULE_SOURCE_CALLBACK`. Любой другой непустой источник возвращает `Result` с ошибкой и ничего не кэширует.
 - Результат попадает в репозиторий и зеркалится в Redis с `$ttl` (0 — вечно). Значения в Redis хранятся в JSON.
 
 Коллбэк может быть:

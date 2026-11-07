@@ -46,6 +46,29 @@ class CacheAddRuleTest extends AbstractCacheTestCase
         $this->assertSame('hello', Cache::get('rule'));
     }
 
+    public function testAddRuleDefaultsToCallbackSource(): void
+    {
+        $result = Cache::addRule('version', action: static fn() => '1.2.3');
+
+        $this->assertTrue($result->is_success);
+        $this->assertSame('1.2.3', Cache::get('version'));
+    }
+
+    public function testAddRuleUnknownSourceReturnsErrorWithoutCallingAction(): void
+    {
+        $called = false;
+
+        $result = Cache::addRule('rule', source: 'sqlx', action: static function () use (&$called) {
+            $called = true;
+            return 'x';
+        });
+
+        $this->assertFalse($result->is_success);
+        $this->assertStringContainsString('unknown source', $result->getMessage());
+        $this->assertFalse($called);
+        $this->assertFalse(Cache::check('rule'));
+    }
+
     public function testAddRuleDisabled(): void
     {
         $result = Cache::addRule('rule', enabled: false, source: Cache::RULE_SOURCE_RAW, action: 'x');

@@ -172,8 +172,9 @@ class Cache implements CacheInterface
                 break;
             }
 
-            // case self::RULE_SOURCE_CALLBACK
-            default: {
+            // Пустой source — осознанный дефолт: правило-коллбэк.
+            case self::RULE_SOURCE_CALLBACK:
+            case self::RULE_SOURCE_UNDEFINED: {
                 self::$logger->info("[addRule] RULE SOURCE CALLBACK");
                 [$actor, $params] = CacheHelper::compileCallbackHandler($action, self::$logger);
 
@@ -188,6 +189,12 @@ class Cache implements CacheInterface
                 }
 
                 break;
+            }
+
+            default: {
+                $result->error("Rule `{$rule_name}` has unknown source `{$source}`");
+                self::$logger->error("[addRule] Unknown source `{$source}` for rule `{$rule_name}`");
+                return $result;
             }
         }
 
