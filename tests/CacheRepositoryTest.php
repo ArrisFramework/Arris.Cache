@@ -3,7 +3,7 @@
 namespace Arris\Cache\Tests;
 
 use Arris\Cache\Cache;
-use Arris\Toolkit\RedisClient;
+use Arris\Toolkit\RedisClientException;
 use Arris\Entity\Result;
 
 class CacheRepositoryTest extends AbstractCacheTestCase
@@ -115,15 +115,15 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertTrue(Cache::check('key_2'));
     }
 
-    public function testDropWithRedisUpdateWhenNotConnectedDoesNotThrow(): void
+    public function testDropWithRedisUpdateWhenNotConnectedSkipsRedis(): void
     {
         Cache::set('key', 'value');
         $result = Cache::drop('key');
 
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertFalse($result->is_success);
+        $this->assertTrue($result->is_success);
         $this->assertFalse(Cache::check('key'));
-        $this->assertStringContainsString('redis removal failed', $result->getMessage());
+        $this->assertStringContainsString('REDIS not connected', $result->getMessage());
     }
 
     public function testDropAllWhenNotConnectedDoesNotThrow(): void
@@ -150,42 +150,46 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertSame([], Cache::$repository);
     }
 
-    public function testRedisHelperIsSafeWhenNotConnected(): void
+    public function testRedisHelperThrowsWhenNotConnected(): void
     {
-        $redis = Cache::redis();
+        $this->expectException(RedisClientException::class);
+        $this->expectExceptionMessage('REDIS is not connected');
 
-        $this->assertNull($redis->fetch('key'));
-        $this->assertFalse($redis->push('key', 'value'));
-        $this->assertSame([], $redis->del('key'));
-        $this->assertFalse($redis->check('key'));
-        $this->assertSame([], $redis->keys('*'));
+        Cache::redis();
     }
 
-    public function testRedisFacadeMethodsAreSafeWhenNotConnected(): void
+    public function testRedisFacadeMethodsThrowWhenNotConnected(): void
     {
-        $this->assertNull(Cache::redisFetch('key'));
-        $this->assertFalse(Cache::redisCheck('key'));
+        $assertThrows = static function (callable $action): void {
+            try {
+                $action();
+                self::fail('Expected RedisClientException');
+            } catch (RedisClientException $e) {
+                self::assertStringContainsString('REDIS is not connected', $e->getMessage());
+            }
+        };
 
-        $push = Cache::redisPush('key', 'value');
-        $this->assertFalse($push->is_success);
-
-        $del = Cache::redisDel('key');
-        $this->assertFalse($del->is_success);
-        $this->assertSame([], $del->raw_array);
+        $assertThrows(static fn() => Cache::redisFetch('key'));
+        $assertThrows(static fn() => Cache::redisCheck('key'));
+        $assertThrows(static fn() => Cache::redisPush('key', 'value'));
+        $assertThrows(static fn() => Cache::redisDel('key'));
     }
 
-    public function testPushToRepositoryStillSucceedsWhenNotConnected(): void
+    public function testPushToRepositorySucceedsWithoutRedis(): void
     {
         $result = Cache::push('key', ['x' => 1]);
 
-        $this->assertFalse($result->is_success);
-        $this->assertStringContainsString('REDIS push failed', $result->getMessage());
+        $this->assertTrue($result->is_success);
+        $this->assertStringContainsString('REDIS not connected', $result->getMessage());
         $this->assertSame(['x' => 1], Cache::get('key'));
     }
 
-    public function testGetConnectorReturnsRedisClient(): void
+    public function testGetConnectorThrowsWhenNotConnected(): void
     {
-        $this->assertInstanceOf(RedisClient::class, Cache::getConnector());
+        $this->expectException(RedisClientException::class);
+        $this->expectExceptionMessage('REDIS is not connected');
+
+        Cache::getConnector();
     }
 
     public function testTimeConstants(): void

@@ -37,16 +37,15 @@ class Cache implements CacheInterface
     public const RULE_SOURCE_RAW = 'raw';
     public const RULE_SOURCE_UNDEFINED = '';
 
-    public static LoggerInterface $logger;
+    public static ?LoggerInterface $logger = null;
     public static bool $is_redis_connected = false;
-    public static mixed $pdo;
+    public static mixed $pdo = null;
 
     public static array $repository = [];
 
-    public static RedisClient $redis;
+    public static ?RedisClient $redis = null;
 
-    private static RedisHelper $redis_helper;
-
+    private static ?RedisHelper $redis_helper = null;
 
     public static function init(string $redis_host = self::REDIS_DEFAULT_HOST, int $redis_port = self::REDIS_DEFAULT_PORT, int $redis_database = self::REDIS_DEFAULT_DB, bool $redis_enabled = true, $PDO = null, ?LoggerInterface $logger = null): Result
     {
@@ -77,16 +76,16 @@ class Cache implements CacheInterface
             database: $options['database'],
             enabled: $options['enabled']
         );
-        self::$logger->info("[init] NanoRedis instantiated");
+        self::$logger?->info("[init] NanoRedis instantiated");
 
         if ($options['enabled']) {
             try {
                 self::$redis->connect();
                 self::$is_redis_connected = true;
-                self::$logger->info("[init] REDIS Connected");
+                self::$logger?->info("[init] REDIS Connected");
                 $result->success("REDIS Connected");
             } catch (RedisClientException|RedisException $e) {
-                self::$logger->info("Connection error", [ $e->getCode(), $e->getMessage(), $e->getTraceAsString() ]);
+                self::$logger?->info("Connection error", [ $e->getCode(), $e->getMessage(), $e->getTraceAsString() ]);
                 $result->error("REDIS connection error: " . $e->getMessage(), (int)$e->getCode());
             }
         } else {
@@ -97,7 +96,7 @@ class Cache implements CacheInterface
             $PDO->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
 
-        self::$redis_helper = new RedisHelper(self::$redis, self::$is_redis_connected, self::$logger);
+        self::$redis_helper = new RedisHelper(self::$redis, self::$is_redis_connected, self::$logger ?? new NullLogger());
 
         return $result;
     }
@@ -106,7 +105,7 @@ class Cache implements CacheInterface
     public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result
     {
         $result = new Result();
-        self::$logger->info("[addRule] called for `{$rule_name}`");
+        self::$logger?->info("[addRule] called for `{$rule_name}`");
 
         if (self::$is_redis_connected) {
             $rule_value = self::$redis->get($rule_name, false);
@@ -117,7 +116,7 @@ class Cache implements CacheInterface
                     json_decode($rule_value, true, 512, JSON_THROW_ON_ERROR)
                 );
                 $result->success("Loaded `{$rule_name}` from redis, stored to cache");
-                self::$logger->info("[addRule] Loaded `{$rule_name}` from REDIS, stored to cache");
+                self::$logger?->info("[addRule] Loaded `{$rule_name}` from REDIS, stored to cache");
                 return $result;
             }
         }
@@ -125,13 +124,13 @@ class Cache implements CacheInterface
         // Именно так: если данные есть в редис - их просто кладем в кэш
         if ($enabled === false) {
             $result->error("Rule `{$rule_name}` disabled");
-            self::$logger->info("[addRule] Rule `{$rule_name}` disabled");
+            self::$logger?->info("[addRule] Rule `{$rule_name}` disabled");
             return $result;
         }
 
         if (is_null($action)) {
             $result->error("Rule `{$rule_name}` has empty action, nothing cached");
-            self::$logger->info("[addRule] Rule `{$rule_name}` has empty action, nothing cached");
+            self::$logger?->info("[addRule] Rule `{$rule_name}` has empty action, nothing cached");
             return $result;
         }
 
@@ -139,13 +138,12 @@ class Cache implements CacheInterface
 
         switch ($source) {
             case self::RULE_SOURCE_SQL: {
-                self::$logger->info("[addRule] RULE SOURCE SQL");
+                self::$logger?->info("[addRule] RULE SOURCE SQL");
 
-                // Коннекта к БД нет: кладем в репозиторий null и продолжаем
+                // Коннекта к БД нет: правило не выполняется и ничего не кэшируется
                 if (is_null(self::$pdo)) {
                     $result->error("[ERROR] Key {$rule_name} not found, action is SQL, but PDO not connected");
-                    self::$logger->info("[addRule] Error: key {$rule_name} not found, action is SQL, but PDO not connected");
-                    self::set($rule_name, null);
+                    self::$logger?->info("[addRule] Error: key {$rule_name} not found, action is SQL, but PDO not connected");
                     return $result;
                 }
 
@@ -153,10 +151,10 @@ class Cache implements CacheInterface
                     $sth = self::$pdo->query($action);
                     $data = $sth->fetchAll();
                     $message = "Data for {$rule_name} fetched from DB";
-                    self::$logger->info("[addRule] Data fetched from DB");
+                    self::$logger?->info("[addRule] Data fetched from DB");
 
                 } catch (PDOException $e) {
-                    self::$logger->info("[addRule] Rule throws PDO Error", [ $e->getCode(), $e->getMessage() ]);
+                    self::$logger?->info("[addRule] Rule throws PDO Error", [ $e->getCode(), $e->getMessage() ]);
                     throw new CacheDatabaseException("[ERROR] Rule [{$rule_name}] throws PDO Error: " . $e->getMessage(), (int)$e->getCode());
                 }
 
@@ -165,7 +163,7 @@ class Cache implements CacheInterface
 
             case self::RULE_SOURCE_RAW: {
                 $data = $action;
-                self::$logger->info("[addRule] RULE SOURCE RAW");
+                self::$logger?->info("[addRule] RULE SOURCE RAW");
                 $message = "Data for `{$rule_name}` fetched as RAW data";
 
                 break;
@@ -174,16 +172,16 @@ class Cache implements CacheInterface
             // Пустой source — осознанный дефолт: правило-коллбэк.
             case self::RULE_SOURCE_CALLBACK:
             case self::RULE_SOURCE_UNDEFINED: {
-                self::$logger->info("[addRule] RULE SOURCE CALLBACK");
-                [$actor, $params] = CacheHelper::compileCallbackHandler($action, self::$logger);
+                self::$logger?->info("[addRule] RULE SOURCE CALLBACK");
+                [$actor, $params] = CacheHelper::compileCallbackHandler($action, self::$logger ?? new NullLogger());
 
                 try {
                     $data = call_user_func_array($actor, $params);
                     $message = "Data for {$rule_name} fetched from callback";
-                    self::$logger->info("[addRule] Data fetched from callback");
+                    self::$logger?->info("[addRule] Data fetched from callback");
 
                 } catch (PDOException $e) {
-                    self::$logger->info("[addRule] Rule throws PDO Error", [ $e->getCode(), $e->getMessage() ]);
+                    self::$logger?->info("[addRule] Rule throws PDO Error", [ $e->getCode(), $e->getMessage() ]);
                     throw new CacheDatabaseException("[ERROR] Rule [{$rule_name}] throws PDO Error: " . $e->getMessage(), (int)$e->getCode());
                 }
 
@@ -192,27 +190,27 @@ class Cache implements CacheInterface
 
             default: {
                 $result->error("Rule `{$rule_name}` has unknown source `{$source}`");
-                self::$logger->error("[addRule] Unknown source `{$source}` for rule `{$rule_name}`");
+                self::$logger?->error("[addRule] Unknown source `{$source}` for rule `{$rule_name}`");
                 return $result;
             }
         }
 
         // кладем результат в репозиторий
         self::set($rule_name, $data);
-        self::$logger->info("[addRule] Pushed data to cache");
+        self::$logger?->info("[addRule] Pushed data to cache");
 
         if (self::$is_redis_connected) {
             self::$redis->set($rule_name, CacheHelper::jsonize($data));
-            self::$logger->info("[addRule] Pushed to redis");
+            self::$logger?->info("[addRule] Pushed to redis");
 
             $message .= ", stored to cache, saved to redis, ";
 
             if ($ttl > 0) {
                 self::$redis->expire($rule_name, $ttl);
-                self::$logger->info("[addRule] Setting TTL {$ttl} seconds");
+                self::$logger?->info("[addRule] Setting TTL {$ttl} seconds");
                 $message .= "TTL {$ttl} seconds";
             } else {
-                self::$logger->info("[addRule] TTL unlimited");
+                self::$logger?->info("[addRule] TTL unlimited");
                 $message .= "TTL unlimited";
             }
 
@@ -228,7 +226,7 @@ class Cache implements CacheInterface
     public static function get(string $key, $default = null):mixed
     {
         if (self::check($key)) {
-            self::$logger->info("[get] Getting {$key} from cache");
+            self::$logger?->info("[get] Getting {$key} from cache");
             return self::$repository[ $key ];
         }
         return $default;
@@ -238,14 +236,14 @@ class Cache implements CacheInterface
     {
         self::unset($key);
         self::$repository[ $key ] = $data;
-        self::$logger->info("[set] pushing `{$key}` data to cache");
+        self::$logger?->info("[set] pushing `{$key}` data to cache");
     }
 
 
     public static function unset(string $key):void
     {
         if (self::check($key)) {
-            self::$logger->info("[unset] removing {$key} from cache");
+            self::$logger?->info("[unset] removing {$key} from cache");
             unset(self::$repository[$key]);
         }
     }
@@ -254,7 +252,7 @@ class Cache implements CacheInterface
     public static function check(string $key): bool
     {
         $is_present = array_key_exists($key, self::$repository);
-        self::$logger->info("[check] checking key `{$key}` in cache", [ $is_present ]);
+        self::$logger?->info("[check] checking key `{$key}` in cache", [ $is_present ]);
         return $is_present;
     }
 
@@ -265,8 +263,8 @@ class Cache implements CacheInterface
         $dropped = self::dropFromRepository($key);
         $dropped_message = count($dropped) . " cache key(s) removed";
 
-        if ($redis_update) {
-            self::$logger->info("[drop] removing {$key} from REDIS");
+        if ($redis_update && self::$is_redis_connected) {
+            self::$logger?->info("[drop] removing {$key} from REDIS");
             $deleted = self::redisDel($key);
 
             if ($deleted->is_success) {
@@ -274,6 +272,8 @@ class Cache implements CacheInterface
             } else {
                 $result->error("Key `{$key}` dropped from cache, {$dropped_message}, but redis removal failed: " . $deleted->getMessage());
             }
+        } elseif ($redis_update) {
+            $result->success("Key `{$key}` dropped from cache, {$dropped_message}, REDIS not connected");
         } else {
             $result->success("Key `{$key}` dropped from cache, {$dropped_message}, redis untouched");
         }
@@ -316,7 +316,7 @@ class Cache implements CacheInterface
         }
 
         if (!empty($dropped)) {
-            self::$logger->info("[drop] removed from cache repository", [ $dropped ]);
+            self::$logger?->info("[drop] removed from cache repository", [ $dropped ]);
         }
 
         return $dropped;
@@ -325,11 +325,11 @@ class Cache implements CacheInterface
     public static function dropAll(bool $redis_update = true): Result
     {
         $result = new Result();
-        self::$logger->info("[dropAll] clearing cache");
+        self::$logger?->info("[dropAll] clearing cache");
         self::$repository = [];
 
         if ($redis_update && self::$is_redis_connected) {
-            self::$logger->info("[dropAll] flushing REDIS database");
+            self::$logger?->info("[dropAll] flushing REDIS database");
             self::$redis->flushDatabase();
             $result->success("Cache cleared, REDIS database flushed");
         } elseif ($redis_update) {
@@ -351,6 +351,12 @@ class Cache implements CacheInterface
     {
         $result = new Result();
         self::set($key_name, $data);
+
+        // Redis не инициализирован: кэш работает, в Redis ничего не пишем.
+        if (!self::$is_redis_connected) {
+            $result->success("Pushed `{$key_name}` to cache only, REDIS not connected");
+            return $result;
+        }
 
         $pushed = self::redis()->push($key_name, $data, $ttl, $use_json_encode);
 
@@ -382,12 +388,6 @@ class Cache implements CacheInterface
     public static function redisDel(string $key_name): Result
     {
         $result = new Result();
-
-        if (!self::$is_redis_connected) {
-            $result->error("REDIS not connected");
-            return $result;
-        }
-
         $deleted = self::redis()->del($key_name);
         $result->raw_array = $deleted;
 
@@ -407,7 +407,7 @@ class Cache implements CacheInterface
 
     public static function addCounter(string $key, int $initial = 0, int $ttl = 0): int
     {
-        self::$logger->info("[addCounter] started");
+        self::$logger?->info("[addCounter] started");
 
         self::set($key, $initial);
 
@@ -426,7 +426,7 @@ class Cache implements CacheInterface
 
     public static function incrCounter(string $key, int $diff = 1): int
     {
-        self::$logger->info("[incrCounter] started");
+        self::$logger?->info("[incrCounter] started");
 
         if (!array_key_exists($key, self::$repository)) {
             self::set($key, 0);
@@ -445,7 +445,7 @@ class Cache implements CacheInterface
 
     public static function decrCounter(string $key, int $diff = 1): int
     {
-        self::$logger->info("[decrCounter] started");
+        self::$logger?->info("[decrCounter] started");
 
         if (!array_key_exists($key, self::$repository)) {
             self::set($key, 0);
@@ -464,7 +464,7 @@ class Cache implements CacheInterface
 
     public static function getCounter(string $key, int $default = 0): int
     {
-        self::$logger->info("[getCounter] started");
+        self::$logger?->info("[getCounter] started");
 
         if (self::$is_redis_connected) {
             $value = self::$redis->get($key);
@@ -479,14 +479,32 @@ class Cache implements CacheInterface
         return self::get($key, $default);
     }
 
-    public static function redis():RedisHelper
+    /**
+     * Хелпер для работы с Redis.
+     *
+     * @throws RedisClientException Если Redis не подключён (init с redis_enabled=true не вызывался
+     *                              или соединение не установилось).
+     */
+    public static function redis(): RedisHelper
     {
-        // return new RedisHelper(self::$redis, self::$is_redis_connected, self::$logger);
-        return self::$redis_helper;
+        if (!self::$is_redis_connected || self::$redis === null) {
+            throw new RedisClientException("REDIS is not connected: call Cache::init() with redis_enabled=true");
+        }
+
+        return self::$redis_helper ??= new RedisHelper(self::$redis, true, self::$logger ?? new NullLogger());
     }
 
+    /**
+     * Прямой коннектор к Redis.
+     *
+     * @throws RedisClientException Если Redis не подключён.
+     */
     public static function getConnector(): RedisClient
     {
+        if (!self::$is_redis_connected || self::$redis === null) {
+            throw new RedisClientException("REDIS is not connected: call Cache::init() with redis_enabled=true");
+        }
+
         return self::$redis;
     }
 }

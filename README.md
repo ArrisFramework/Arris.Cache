@@ -100,12 +100,16 @@ Cache::dropAll(bool $redis_update = true): Result           // очистить 
 
 В `drop()` допустима glob-маска (`item_*`, `item_?`, `*rticl*`); маска применяется и к репозиторию, и к Redis.
 
+Движок работает и без Redis: репозиторий, счётчики и правила-callback/RAW не требуют подключения. `push()` в этом режиме пишет только в репозиторий и возвращает success с пометкой «REDIS not connected»; `drop()`/`dropAll()` просто пропускают Redis; SQL-правила возвращают ошибку «PDO not connected». `Cache::get()`/`set()`/`check()` до `init()` не меняют глобальное состояние (логирование идёт через nullsafe).
+
 ## Redis
+
+Все методы этого раздела требуют установленного подключения к Redis. Если `Cache::init(redis_enabled: true)` не вызывался или соединение не установилось, они бросают `Arris\Toolkit\RedisClientException` с сообщением «REDIS is not connected…».
 
 ```php
 Cache::redisFetch(string $key, bool $use_json_decode = true): mixed // прочитать (JSON-декод)
 Cache::redisPush(string $key, $data, int $ttl = 0, bool $use_json_encode = true): Result // записать только в Redis
-Cache::push(string $key, $data, int $ttl = 0, bool $use_json_encode = true): Result      // в репозиторий И Redis
+Cache::push(string $key, $data, int $ttl = 0, bool $use_json_encode = true): Result      // в репозиторий И Redis (без Redis — только репозиторий)
 Cache::redisDel(string $key): Result          // удалить (допустима маска, напр. 'article*'); список удалённых ключей — в $result->raw_array
 Cache::redisCheck(string $key): bool          // есть ли ключ в Redis
 
@@ -169,7 +173,8 @@ if ($result->is_success) {
 ## Исключения
 
 - `Arris\Cache\Exceptions\CacheCallbackException` — неверный коллбэк в правиле;
-- `Arris\Cache\Exceptions\CacheDatabaseException` — `PDOException`, обёрнутый в правиле.
+- `Arris\Cache\Exceptions\CacheDatabaseException` — `PDOException`, обёрнутый в правиле;
+- `Arris\Toolkit\RedisClientException` — Redis-метод вызван без подключения (или ошибка самого клиента).
 
 ## Тесты
 
@@ -178,7 +183,7 @@ composer install
 vendor/bin/phpunit
 ```
 
-77 тестов / 183 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+97 тестов / 243 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 

@@ -181,7 +181,7 @@ class CacheAddRuleTest extends AbstractCacheTestCase
 
         $this->assertFalse($result->is_success);
         $this->assertStringContainsString('PDO not connected', $result->getMessage());
-        $this->assertNull(Cache::get('rows'));
+        $this->assertFalse(Cache::check('rows'));
     }
 
     public function testAddRuleSqlThrowsCacheDatabaseException(): void

@@ -95,7 +95,8 @@ interface CacheInterface
     public static function unset(string $key):void;
 
     /**
-     * Добавляет значение в редис и репозиторий кэша
+     * Добавляет значение в репозиторий кэша и, если Redis подключён, в Redis.
+     * Без подключённого Redis значение остаётся только в репозитории.
      *
      * @param string $key_name
      * @param $data
@@ -109,7 +110,8 @@ interface CacheInterface
     public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result;
 
     /**
-     * Удаляет ключ из репозитория И редиса
+     * Удаляет ключ из репозитория И редиса.
+     * Без подключённого Redis удаляется только из репозитория.
      *
      * Допустимо указание маски в ключе:
      * `article*`, и даже `*rticl*`
@@ -252,6 +254,7 @@ interface CacheInterface
      * keys() - аналога нет
      *
      * @return RedisHelper
+     * @throws RedisClientException если Redis не подключён
      */
     public static function redis(): RedisHelper;
 
@@ -259,6 +262,7 @@ interface CacheInterface
      * Возвращает прямой коннектор к редис-клиенту
      *
      * @return RedisClient
+     * @throws RedisClientException если Redis не подключён
      */
     public static function getConnector(): RedisClient;
 
