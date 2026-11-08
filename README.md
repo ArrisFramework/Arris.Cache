@@ -127,18 +127,19 @@ Cache::getConnector(): RedisClient             // прямой коннекто�
 ## Счётчики
 
 ```php
-Cache::addCounter(string $key, int $initial = 0, int $ttl = 0): int
+Cache::addCounter(string $key, int $initial = 0): int
 Cache::incrCounter(string $key, int $diff = 1): int
 Cache::decrCounter(string $key, int $diff = 1): int
 Cache::getCounter(string $key, int $default = 0): int
+Cache::delCounter(string $key): Result
 ```
 
-Когда Redis подключён — он является источником результата (`incrBy`/`decrBy`), репозиторий зеркалит значение. Без Redis счётчики живут только в репозитории.
+Счётчики создаются **навечно**: TTL не выставляется, повторный `addCounter()` снимает старый TTL (Redis `SET`). Когда Redis подключён — он источник истины (`incrBy`/`decrBy`/`get`), репозиторий зеркалит значение; без Redis счётчики живут только в репозитории. `incrCounter()`/`decrCounter()` бросают `RedisClientException`, если Redis вернул `false` (например, ключ содержит не число). `getCounter()` при отсутствии ключа в Redis возвращает `$default` и очищает устаревшую копию в репозитории. `delCounter()` — алиас `drop($key)`: удаляет и из репозитория, и из Redis (если подключён).
 
 ## `Result`
 
 Методы-действия возвращают `Arris\Entity\Result` (`karelwintersky/arris.entity`):
-`init`, `addRule`, `drop`, `dropAll`, `push`, `redisPush`, `redisDel`.
+`init`, `addRule`, `drop`, `dropAll`, `push`, `redisPush`, `redisDel`, `delCounter`.
 
 Проверка результата:
 
@@ -185,7 +186,7 @@ composer install
 vendor/bin/phpunit
 ```
 
-103 теста / 258 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+106 тестов / 272 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 

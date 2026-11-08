@@ -43,6 +43,18 @@ class CacheCounterTest extends AbstractCacheTestCase
         $this->assertSame(-1, Cache::decrCounter('cnt'));
     }
 
+    public function testDelCounterRemovesCounterFromRepository(): void
+    {
+        Cache::addCounter('cnt', 5);
+
+        $result = Cache::delCounter('cnt');
+
+        $this->assertTrue($result->is_success);
+        $this->assertFalse(Cache::check('cnt'));
+        $this->assertSame(0, Cache::getCounter('cnt'));
+        $this->assertSame(42, Cache::getCounter('cnt', 42));
+    }
+
     public function testGetCounterFallsBackToDefault(): void
     {
         $this->assertSame(0, Cache::getCounter('cnt'));

@@ -409,21 +409,22 @@ class Cache implements CacheInterface
         return self::redis()->check($key_name);
     }
 
-    public static function addCounter(string $key, int $initial = 0, int $ttl = 0): int
+    public static function addCounter(string $key, int $initial = 0): int
     {
         self::$logger?->info("[addCounter] started");
 
-        self::set($key, $initial);
-
+        // Счётчики создаются навечно: TTL не выставляется, а Redis SET
+        // заодно снимает возможный старый TTL с существующего ключа.
         if (self::$is_redis_connected) {
-            self::$redis->set($key, $initial);
-
-            if ($ttl > 0) {
-                self::$redis->expire($key, $ttl);
+            if (!self::$redis->set($key, $initial)) {
+                throw new RedisClientException("Failed to initialize counter `{$key}` in REDIS");
             }
 
-            return (int)self::$redis->get($key);
+            self::$repository[ $key ] = $initial;
+            return $initial;
         }
+
+        self::set($key, $initial);
         return $initial;
     }
 
@@ -432,14 +433,20 @@ class Cache implements CacheInterface
     {
         self::$logger?->info("[incrCounter] started");
 
-        if (!array_key_exists($key, self::$repository)) {
-            self::set($key, 0);
-        }
-
         if (self::$is_redis_connected) {
-            $value = (int)self::$redis->incrBy($key, $diff);
+            $value = self::$redis->incrBy($key, $diff);
+
+            if ($value === false) {
+                throw new RedisClientException("Failed to increment counter `{$key}` in REDIS");
+            }
+
+            $value = (int)$value;
             self::$repository[ $key ] = $value;
             return $value;
+        }
+
+        if (!array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
         }
 
         self::$repository[ $key ] += $diff;
@@ -451,14 +458,20 @@ class Cache implements CacheInterface
     {
         self::$logger?->info("[decrCounter] started");
 
-        if (!array_key_exists($key, self::$repository)) {
-            self::set($key, 0);
-        }
-
         if (self::$is_redis_connected) {
-            $value = (int)self::$redis->decrBy($key, $diff);
+            $value = self::$redis->decrBy($key, $diff);
+
+            if ($value === false) {
+                throw new RedisClientException("Failed to decrement counter `{$key}` in REDIS");
+            }
+
+            $value = (int)$value;
             self::$repository[ $key ] = $value;
             return $value;
+        }
+
+        if (!array_key_exists($key, self::$repository)) {
+            self::set($key, 0);
         }
 
         self::$repository[ $key ] -= $diff;
@@ -470,25 +483,30 @@ class Cache implements CacheInterface
     {
         self::$logger?->info("[getCounter] started");
 
+        // Redis — источник истины, когда подключён: отсутствие ключа
+        // означает отсутствие счётчика, копия в репозитории очищается.
         if (self::$is_redis_connected) {
             $value = self::$redis->get($key);
 
-            if ($value !== false) {
-                $value = (int)$value;
-                self::$repository[ $key ] = $value;
-                return $value;
+            if ($value === false) {
+                unset(self::$repository[ $key ]);
+                return $default;
             }
+
+            $value = (int)$value;
+            self::$repository[ $key ] = $value;
+            return $value;
         }
 
         return self::get($key, $default);
     }
 
-    /**
-     * Хелпер для работы с Redis.
-     *
-     * @throws RedisClientException Если Redis не подключён (init с redis_enabled=true не вызывался
-     *                              или соединение не установилось).
-     */
+
+    public static function delCounter(string $key): Result
+    {
+        return self::drop($key);
+    }
+
     public static function redis(): RedisHelper
     {
         if (!self::$is_redis_connected || self::$redis === null) {

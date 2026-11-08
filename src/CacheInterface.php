@@ -197,20 +197,20 @@ interface CacheInterface
     /* === СЧЕТЧИКИ === */
 
     /**
-     * Добавляет счетчик (целое число) в кэш и редис (если подключен)
-     * Если TTL 0 - ключ не истекает
+     * Создаёт (или переинициализирует) счетчик — целое число — в кэше и редисе
+     * (если подключен). Счётчики создаются навечно: TTL не выставляется.
      *
      * @param string $key
      * @param int $initial
-     * @param int $ttl
      * @return int
      * @throws RedisException
      * @throws RedisClientException
      */
-    public static function addCounter(string $key, int $initial = 0, int $ttl = 0):int;
+    public static function addCounter(string $key, int $initial = 0):int;
 
     /**
-     * Увеличивает счетчик в кэше и редисе (если подключен)
+     * Увеличивает счетчик в кэше и редисе (если подключен).
+     * Бросает исключение, если Redis не смог выполнить incrBy.
      *
      * @param string $key
      * @param int $diff
@@ -221,7 +221,8 @@ interface CacheInterface
     public static function incrCounter(string $key, int $diff = 1):int;
 
     /**
-     * Уменьшает счетчик в кэше и редисе (если подключен)
+     * Уменьшает счетчик в кэше и редисе (если подключен).
+     * Бросает исключение, если Redis не смог выполнить decrBy.
      *
      * @param string $key
      * @param int $diff
@@ -232,7 +233,9 @@ interface CacheInterface
     public static function decrCounter(string $key, int $diff = 1):int;
 
     /**
-     * Возвращает значение счетчика из редиса или кэша
+     * Возвращает значение счетчика из редиса или кэша.
+     * Если Redis подключён и ключа там нет, возвращается $default,
+     * а устаревшая копия в репозитории очищается.
      *
      * @param string $key
      * @param int $default
@@ -243,7 +246,18 @@ interface CacheInterface
     public static function getCounter(string $key, int $default = 0):int;
 
     /**
-     * РЕДИС-хелпер
+     * Удаляет счетчик из репозитория и Redis (если подключён).
+     * Алиас drop() для одного ключа; счётчик — обычный ключ кэша.
+     *
+     * @param string $key
+     * @return Result
+     * @throws RedisException
+     * @throws RedisClientException
+     */
+    public static function delCounter(string $key): Result;
+
+    /**
+     * Хелпер для работы с Redis.
      *
      * Предоставляет методы, полные аналоги соответствующих методов из основного класса:
      *
@@ -256,7 +270,8 @@ interface CacheInterface
      * keys() - аналога нет
      *
      * @return RedisHelper
-     * @throws RedisClientException если Redis не подключён
+     * @throws RedisClientException если Redis не подключён (init с redis_enabled=true не вызывался
+     *                                или соединение не установилось).
      */
     public static function redis(): RedisHelper;
 

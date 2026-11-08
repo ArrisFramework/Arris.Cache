@@ -5,6 +5,7 @@ namespace Arris\Cache\Tests;
 use Arris\Cache\Cache;
 use Arris\Cache\CacheHelper;
 use Arris\Entity\Result;
+use Arris\Toolkit\RedisClientException;
 
 /**
  * Redis-backed behavior tests.
@@ -241,16 +242,51 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertSame(77, Cache::getCounter('absent', 77));
     }
 
-    public function testCounterTtlExpiresInRedis(): void
+    public function testDelCounterRemovesFromRepositoryAndRedis(): void
     {
-        Cache::addCounter('ct', 5, ttl: 1);
-        $this->assertTrue(Cache::redisCheck('ct'));
+        Cache::addCounter('ct', 5);
 
-        sleep(2);
+        $result = Cache::delCounter('ct');
 
+        $this->assertTrue($result->is_success);
+        $this->assertFalse(Cache::check('ct'));
         $this->assertFalse(Cache::redisCheck('ct'));
-        Cache::unset('ct');
         $this->assertSame(0, Cache::getCounter('ct'));
+    }
+
+    public function testGetCounterClearsStaleRepositoryValueWhenRedisKeyMissing(): void
+    {
+        Cache::addCounter('ct', 5);
+        $this->assertSame(5, Cache::get('ct'));
+
+        Cache::redisDel('ct'); // удаляем только из Redis, репозиторий остаётся stale
+
+        $this->assertTrue(Cache::check('ct'));
+        $this->assertSame(0, Cache::getCounter('ct'));
+        $this->assertFalse(Cache::check('ct'));
+        $this->assertSame(42, Cache::getCounter('ct', 42));
+    }
+
+    public function testIncrAndDecrThrowWhenRedisValueIsNotInteger(): void
+    {
+        Cache::redisPush('bad', 'abc', use_json_encode: false);
+
+        try {
+            Cache::incrCounter('bad');
+            $this->fail('Expected RedisClientException on incrCounter');
+        } catch (RedisClientException $e) {
+            $this->assertStringContainsString('Failed to increment counter', $e->getMessage());
+        }
+
+        try {
+            Cache::decrCounter('bad');
+            $this->fail('Expected RedisClientException on decrCounter');
+        } catch (RedisClientException $e) {
+            $this->assertStringContainsString('Failed to decrement counter', $e->getMessage());
+        }
+
+        $this->assertSame('abc', Cache::redisFetch('bad', use_json_decode: false));
+        $this->assertFalse(Cache::check('bad'));
     }
 
     public function testPushTtlExpiresInRedis(): void
