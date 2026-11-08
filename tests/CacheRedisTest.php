@@ -40,6 +40,17 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertTrue(Cache::redisCheck('anything_not_present') === false);
     }
 
+    public function testInitResetsRepositoryButLeavesRedisIntact(): void
+    {
+        Cache::push('key', 'value');
+        $this->assertTrue(Cache::check('key'));
+
+        Cache::init(redis_host: '127.0.0.1', redis_database: 15, redis_enabled: true);
+
+        $this->assertFalse(Cache::check('key'));
+        $this->assertTrue(Cache::redisCheck('key'));
+    }
+
     public function testRedisPushFetchRoundTrip(): void
     {
         Cache::redisPush('data', ['a' => 1, 'b' => [2, 3]]);

@@ -24,7 +24,9 @@ interface CacheInterface
     public const REDIS_DEFAULT_DB   = 0;
 
     /**
-     * Инициализирует кэш (репозиторий)
+     * Инициализирует кэш (репозиторий).
+     *
+     * При каждом вызове очищает in-memory репозиторий; данные в Redis не трогаются.
      *
      * @param string $redis_host
      * @param int $redis_port

@@ -102,6 +102,8 @@ Cache::dropAll(bool $redis_update = true): Result           // очистить 
 
 Движок работает и без Redis: репозиторий, счётчики и правила-callback/RAW не требуют подключения. `push()` в этом режиме пишет только в репозиторий и возвращает success с пометкой «REDIS not connected»; `drop()`/`dropAll()` просто пропускают Redis; SQL-правила возвращают ошибку «PDO not connected». `Cache::get()`/`set()`/`check()` до `init()` не меняют глобальное состояние (логирование идёт через nullsafe).
 
+`Cache::init()` при каждом вызове очищает in-memory репозиторий, но **не трогает данные в Redis**.
+
 ## Redis
 
 Все методы этого раздела требуют установленного подключения к Redis. Если `Cache::init(redis_enabled: true)` не вызывался или соединение не установилось, они бросают `Arris\Toolkit\RedisClientException` с сообщением «REDIS is not connected…».
@@ -183,7 +185,7 @@ composer install
 vendor/bin/phpunit
 ```
 
-97 тестов / 243 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+99 тестов / 250 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 

@@ -18,6 +18,18 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertFalse(Cache::$is_redis_connected);
     }
 
+    public function testInitResetsRepository(): void
+    {
+        Cache::set('stale', 'value');
+        $this->assertTrue(Cache::check('stale'));
+
+        $result = Cache::init(redis_enabled: false);
+
+        $this->assertTrue($result->is_success);
+        $this->assertFalse(Cache::check('stale'));
+        $this->assertNull(Cache::get('stale'));
+    }
+
     public function testSetGetRoundTrip(): void
     {
         Cache::set('key', 'value');

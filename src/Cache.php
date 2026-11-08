@@ -55,6 +55,10 @@ class Cache implements CacheInterface
         self::$is_redis_connected = false;
         self::$pdo = $PDO;
 
+        // Повторный init() начинает с чистого репозитория: старые значения
+        // могли быть загружены из другого Redis-подключения/БД.
+        self::$repository = [];
+
         $options = CacheHelper::overrideDefaults([
             'enabled'   =>  false,
             'host'      =>  self::REDIS_DEFAULT_HOST,
