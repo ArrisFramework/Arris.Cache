@@ -34,7 +34,6 @@
         "karelwintersky/arris.helpers": "^0",
         "karelwintersky/arris.database": "^2",
         "karelwintersky/arris.logger": "^2",
-        "vlucas/phpdotenv": "^3.3",
         "phpunit/phpunit": "^10.5"
     }
 }

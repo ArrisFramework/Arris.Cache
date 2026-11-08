@@ -10,12 +10,15 @@ use Psr\Log\LoggerInterface;
 use RedisException;
 
 /**
- * Практически, это враппер над редисом. Поэтому все действия с кэшем должны отражаться на редисе.
+ * Кэш = in-memory репозиторий + опциональный Redis.
  *
- * Удаление ключа из кэша-репозитория = удалению ключа из редиса, потому что сам кэш это чисто отображение редиса на память
- * с фоллбэком из правил.
+ * Redis — персистентный слой: при подключении значения читаются из него и
+ * записываются в него; без подключения репозиторий работает самостоятельно.
  *
- * Не знаю, нужны ли нам методы, удаляющие данные только из кэша. Скорее всего нет. Или только как кастомные методы в хэлпере.
+ * ВАЖНО: TTL (`$ttl` в addRule/push/redisPush) применяется только к ключам Redis.
+ * Репозиторий — обычный массив без времени жизни; get() не обращается к Redis и
+ * не проверяет TTL. После экспирации ключа в Redis копия в памяти процесса
+ * остаётся до addRule()/drop()/dropAll()/init().
  */
 interface CacheInterface
 {
@@ -54,7 +57,8 @@ interface CacheInterface
      * @param bool $enabled - включено ли правило
      * @param string $source - источник данных: RULE_SOURCE_SQL, RULE_SOURCE_CALLBACK, RULE_SOURCE_RAW
      * @param null $action - действие: SQL-запрос, коллбэк-функция или коллбэк-запись, сырое значение
-     * @param int $ttl - время жизни значения в секундах, 0 - вечно
+     * @param int $ttl - время жизни значения в Redis в секундах, 0 - вечно.
+     *                   На in-memory репозиторий не действует: его копия не истекает.
      *
      * @return Result
      * @throws JsonException
@@ -102,7 +106,7 @@ interface CacheInterface
      *
      * @param string $key_name
      * @param $data
-     * @param int $ttl
+     * @param int $ttl - TTL только для Redis-копии; значение в репозитории не истекает
      * @param bool $use_json_encode
      * @return Result
      * @throws JsonException
