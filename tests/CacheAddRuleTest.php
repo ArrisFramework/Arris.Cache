@@ -3,6 +3,7 @@
 namespace Arris\Cache\Tests;
 
 use Arris\Cache\Cache;
+use Arris\Cache\Exceptions\CacheCallbackException;
 use Arris\Cache\Exceptions\CacheDatabaseException;
 use Arris\Entity\Result;
 use PDO;
@@ -110,6 +111,18 @@ class CacheAddRuleTest extends AbstractCacheTestCase
 
         $this->assertTrue($result->is_success);
         $this->assertSame(5, Cache::get('rule'));
+    }
+
+    public function testAddRuleCallbackWithNonArrayParamsThrows(): void
+    {
+        $this->expectException(CacheCallbackException::class);
+        $this->expectExceptionMessage('MUST be an array of params');
+
+        Cache::addRule(
+            'rule',
+            source: Cache::RULE_SOURCE_CALLBACK,
+            action: ['strtoupper', 'abc']
+        );
     }
 
     public function testAddRuleCallbackPlainFunction(): void

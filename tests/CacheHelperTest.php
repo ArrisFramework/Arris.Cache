@@ -179,6 +179,30 @@ class CacheHelperTest extends TestCase
         CacheHelper::compileCallbackHandler([42], new NullLogger());
     }
 
+    public function testCompileCallbackNonArrayParamsThrows(): void
+    {
+        $this->expectException(CacheCallbackException::class);
+        $this->expectExceptionMessage('Second argument of callback array MUST be an array of params');
+
+        CacheHelper::compileCallbackHandler(['strtoupper', 'abc'], new NullLogger());
+    }
+
+    public function testCompileCallbackEmptyHandlerThrows(): void
+    {
+        $this->expectException(CacheCallbackException::class);
+        $this->expectExceptionMessage('Callback handler is empty');
+
+        CacheHelper::compileCallbackHandler([], new NullLogger());
+    }
+
+    public function testCompileCallbackEmptyStringHandlerThrows(): void
+    {
+        $this->expectException(CacheCallbackException::class);
+        $this->expectExceptionMessage('Callback handler is empty');
+
+        CacheHelper::compileCallbackHandler('', new NullLogger());
+    }
+
     public function testCompileCallbackUnknownClassThrows(): void
     {
         $this->expectException(CacheCallbackException::class);

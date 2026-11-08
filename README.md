@@ -170,7 +170,7 @@ if ($result->is_success) {
 - `jsonize($data)` — `json_encode` (UNICODE | PRESERVE_ZERO_FRACTION | INVALID_UTF8_SUBSTITUTE | THROW_ON_ERROR);
 - `overrideDefaults($defaults, $options)` — дефолты, перезаписанные опциями;
 - `fetchOptionBool($option, $if_present, $if_not_present_or_zero)` — чтение 0/1-флага из Redis;
-- `compileCallbackHandler($actor, $logger)` — компиляция коллбэка в `[callable, params]`.
+- `compileCallbackHandler($actor, $logger)` — компиляция коллбэка в `[callable, params]`; `params` обязан быть массивом, handler — непустым `Closure`/строкой, иначе `CacheCallbackException`.
 
 ## Исключения
 
@@ -185,7 +185,7 @@ composer install
 vendor/bin/phpunit
 ```
 
-99 тестов / 250 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+103 теста / 258 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 

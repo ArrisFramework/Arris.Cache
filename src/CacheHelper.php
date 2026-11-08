@@ -176,12 +176,17 @@ class CacheHelper
     }
 
     /**
-     * "Компилирует" параметры коллбэка
-     * (@param $actor
-     * @param $logger
-     * @return array
-     * @todo: обновить в Arris\Router ?)
+     * "Компилирует" обработчик коллбэка в пару [callable, params].
      *
+     * Допустимые формы: Closure, 'function', 'Class@method', 'Class::method',
+     * [handler, params]. Второй элемент массива обязан быть массивом параметров;
+     * пустой handler запрещён.
+     *
+     * @param mixed $actor
+     * @param \Psr\Log\LoggerInterface $logger
+     * @return array{0: mixed, 1: array}
+     * @throws CacheCallbackException
+     * @todo: обновить в Arris\Router ?)
      */
     public static function compileCallbackHandler($actor, $logger): array
     {
@@ -198,18 +203,21 @@ class CacheHelper
         }
 
         if (!is_array($actor)) {
-            return [
-                $actor, []
-            ];
+            throw new CacheCallbackException("Callback handler MUST be a Closure, a string or an array");
         }
 
         // 0 - имя класса + метода
         // 1 - массив параметров
-        $handler = $actor[0];
-        $params
-            = count($actor) > 1
-            ? $actor[1]
-            : [];
+        $handler = $actor[0] ?? null;
+        $params = $actor[1] ?? [];
+
+        if ($handler === null || $handler === '') {
+            throw new CacheCallbackException("Callback handler is empty");
+        }
+
+        if (!is_array($params)) {
+            throw new CacheCallbackException("Second argument of callback array MUST be an array of params");
+        }
 
         if ($handler instanceof \Closure) {
             return [
