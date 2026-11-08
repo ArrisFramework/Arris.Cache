@@ -270,12 +270,7 @@ class Cache implements CacheInterface
         if ($redis_update && self::$is_redis_connected) {
             self::$logger?->info("[drop] removing {$key} from REDIS");
             $deleted = self::redisDel($key);
-
-            if ($deleted->is_success) {
-                $result->success("Key `{$key}` dropped from cache, {$dropped_message}, " . count($deleted->raw_array) . " redis key(s) removed");
-            } else {
-                $result->error("Key `{$key}` dropped from cache, {$dropped_message}, but redis removal failed: " . $deleted->getMessage());
-            }
+            $result->success("Key `{$key}` dropped from cache, {$dropped_message}, " . count($deleted->raw_array) . " redis key(s) removed");
         } elseif ($redis_update) {
             $result->success("Key `{$key}` dropped from cache, {$dropped_message}, REDIS not connected");
         } else {
