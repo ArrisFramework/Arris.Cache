@@ -20,7 +20,6 @@ class CachePreInitTest extends TestCase
             Cache::$logger = null;
             Cache::$redis = null;
             Cache::$redis_helper = null;
-            Cache::$is_redis_connected = false;
             Cache::$pdo = null;
             Cache::$repository = [];
         }, null, Cache::class)();
@@ -79,14 +78,14 @@ class CachePreInitTest extends TestCase
 
     public function testRepositoryReadBeforeInitDoesNotInitializeLogger(): void
     {
-        $this->assertNull(Cache::$logger);
+        $this->assertNull(self::cacheState('logger'));
 
         Cache::get('missing');
         Cache::check('missing');
         Cache::set('key', 1);
         Cache::unset('key');
 
-        $this->assertNull(Cache::$logger);
+        $this->assertNull(self::cacheState('logger'));
     }
 
     public function testPushBeforeInitWritesRepositoryOnly(): void
@@ -96,7 +95,7 @@ class CachePreInitTest extends TestCase
         $this->assertTrue($result->is_success);
         $this->assertStringContainsString('REDIS not connected', $result->getMessage());
         $this->assertSame(['a' => 1], Cache::get('key'));
-        $this->assertNull(Cache::$redis);
+        $this->assertNull(self::cacheState('redis'));
     }
 
     public function testRedisHelperThrowsBeforeInit(): void
@@ -121,6 +120,26 @@ class CachePreInitTest extends TestCase
         $this->assertThrowsRedisNotConnected(static fn() => Cache::redisPush('key', 1));
         $this->assertThrowsRedisNotConnected(static fn() => Cache::redisDel('key'));
         $this->assertThrowsRedisNotConnected(static fn() => Cache::redisCheck('key'));
+    }
+
+    public function testIsRedisConnectedIsFalseBeforeInit(): void
+    {
+        $this->assertFalse(Cache::isRedisConnected());
+    }
+
+    public function testStaticStateIsPrivate(): void
+    {
+        foreach (['logger', 'pdo', 'repository', 'redis', 'redis_helper'] as $property) {
+            $this->assertTrue(
+                (new \ReflectionProperty(Cache::class, $property))->isPrivate(),
+                "Cache::\${$property} must be private"
+            );
+        }
+    }
+
+    private static function cacheState(string $property): mixed
+    {
+        return (new \ReflectionProperty(Cache::class, $property))->getValue();
     }
 
     private function assertThrowsRedisNotConnected(callable $action): void

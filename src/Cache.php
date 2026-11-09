@@ -37,22 +37,28 @@ class Cache implements CacheInterface
     public const RULE_SOURCE_RAW = 'raw';
     public const RULE_SOURCE_UNDEFINED = '';
 
-    public static ?LoggerInterface $logger = null;
-    public static bool $is_redis_connected = false;
-    public static mixed $pdo = null;
+    private static ?LoggerInterface $logger = null;
 
-    public static array $repository = [];
+    private static PDO|null $pdo = null;
 
-    public static ?RedisClient $redis = null;
+    private static array $repository = [];
+
+    private static ?RedisClient $redis = null;
 
     private static ?RedisHelper $redis_helper = null;
 
-    public static function init(string $redis_host = self::REDIS_DEFAULT_HOST, int $redis_port = self::REDIS_DEFAULT_PORT, int $redis_database = self::REDIS_DEFAULT_DB, bool $redis_enabled = true, $PDO = null, ?LoggerInterface $logger = null): Result
+    public static function init(
+        string $redis_host = self::REDIS_DEFAULT_HOST,
+        int $redis_port = self::REDIS_DEFAULT_PORT,
+        int $redis_database = self::REDIS_DEFAULT_DB,
+        bool $redis_enabled = true,
+        $PDO = null,
+        ?LoggerInterface $logger = null
+    ): Result
     {
         $result = new Result();
 
         self::$logger = is_null($logger) ? new NullLogger() : $logger;
-        self::$is_redis_connected = false;
         self::$pdo = $PDO;
 
         // Повторный init() начинает с чистого репозитория: старые значения
@@ -85,7 +91,6 @@ class Cache implements CacheInterface
         if ($options['enabled']) {
             try {
                 self::$redis->connect();
-                self::$is_redis_connected = true;
                 self::$logger?->info("[init] REDIS Connected");
                 $result->success("REDIS Connected");
             } catch (RedisClientException|RedisException $e) {
@@ -100,7 +105,7 @@ class Cache implements CacheInterface
             $PDO->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
 
-        self::$redis_helper = new RedisHelper(self::$redis, self::$is_redis_connected, self::$logger ?? new NullLogger());
+        self::$redis_helper = new RedisHelper(self::$redis, self::$logger ?? new NullLogger());
 
         return $result;
     }
@@ -111,7 +116,7 @@ class Cache implements CacheInterface
         $result = new Result();
         self::$logger?->info("[addRule] called for `{$rule_name}`");
 
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             $rule_value = self::$redis->get($rule_name, false);
 
             if ($rule_value !== false) {
@@ -203,7 +208,7 @@ class Cache implements CacheInterface
         self::set($rule_name, $data);
         self::$logger?->info("[addRule] Pushed data to cache");
 
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             self::$redis->set($rule_name, CacheHelper::jsonize($data));
             self::$logger?->info("[addRule] Pushed to redis");
 
@@ -267,7 +272,7 @@ class Cache implements CacheInterface
         $dropped = self::dropFromRepository($key);
         $dropped_message = count($dropped) . " cache key(s) removed";
 
-        if ($redis_update && self::$is_redis_connected) {
+        if ($redis_update && self::isRedisConnected()) {
             self::$logger?->info("[drop] removing {$key} from REDIS");
             $deleted = self::redisDel($key);
             $result->success("Key `{$key}` dropped from cache, {$dropped_message}, " . count($deleted->raw_array) . " redis key(s) removed");
@@ -327,7 +332,7 @@ class Cache implements CacheInterface
         self::$logger?->info("[dropAll] clearing cache");
         self::$repository = [];
 
-        if ($redis_update && self::$is_redis_connected) {
+        if ($redis_update && self::isRedisConnected()) {
             self::$logger?->info("[dropAll] flushing REDIS database");
             self::$redis->flushDatabase();
             $result->success("Cache cleared, REDIS database flushed");
@@ -341,6 +346,17 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Подключён ли Redis.
+     *
+     * Фасад не держит собственного флага соединения: состояние читается
+     * у RedisClient, поэтому не может с ним разойтись.
+     */
+    public static function isRedisConnected(): bool
+    {
+        return self::$redis?->is_connected === true;
+    }
+
     public static function redisFetch(string $key_name, bool $use_json_decode = true): mixed
     {
         return self::redis()->fetch($key_name, $use_json_decode);
@@ -352,7 +368,7 @@ class Cache implements CacheInterface
         self::set($key_name, $data);
 
         // Redis не инициализирован: кэш работает, в Redis ничего не пишем.
-        if (!self::$is_redis_connected) {
+        if (!self::isRedisConnected()) {
             $result->success("Pushed `{$key_name}` to cache only, REDIS not connected");
             return $result;
         }
@@ -410,7 +426,7 @@ class Cache implements CacheInterface
 
         // Счётчики создаются навечно: TTL не выставляется, а Redis SET
         // заодно снимает возможный старый TTL с существующего ключа.
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             if (!self::$redis->set($key, $initial)) {
                 throw new RedisClientException("Failed to initialize counter `{$key}` in REDIS");
             }
@@ -428,7 +444,7 @@ class Cache implements CacheInterface
     {
         self::$logger?->info("[incrCounter] started");
 
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             $value = self::$redis->incrBy($key, $diff);
 
             if ($value === false) {
@@ -453,7 +469,7 @@ class Cache implements CacheInterface
     {
         self::$logger?->info("[decrCounter] started");
 
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             $value = self::$redis->decrBy($key, $diff);
 
             if ($value === false) {
@@ -480,7 +496,7 @@ class Cache implements CacheInterface
 
         // Redis — источник истины, когда подключён: отсутствие ключа
         // означает отсутствие счётчика, копия в репозитории очищается.
-        if (self::$is_redis_connected) {
+        if (self::isRedisConnected()) {
             $value = self::$redis->get($key);
 
             if ($value === false) {
@@ -504,11 +520,9 @@ class Cache implements CacheInterface
 
     public static function redis(): RedisHelper
     {
-        if (!self::$is_redis_connected || self::$redis === null) {
-            throw new RedisClientException("REDIS is not connected: call Cache::init() with redis_enabled=true");
-        }
+        $redis = self::getConnector();
 
-        return self::$redis_helper ??= new RedisHelper(self::$redis, true, self::$logger ?? new NullLogger());
+        return self::$redis_helper ??= new RedisHelper($redis, self::$logger ?? new NullLogger());
     }
 
     /**
@@ -518,10 +532,12 @@ class Cache implements CacheInterface
      */
     public static function getConnector(): RedisClient
     {
-        if (!self::$is_redis_connected || self::$redis === null) {
+        $redis = self::$redis;
+
+        if ($redis === null || !$redis->is_connected) {
             throw new RedisClientException("REDIS is not connected: call Cache::init() with redis_enabled=true");
         }
 
-        return self::$redis;
+        return $redis;
     }
 }

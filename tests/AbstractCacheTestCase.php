@@ -21,4 +21,12 @@ abstract class AbstractCacheTestCase extends TestCase
         Cache::init(redis_enabled: false);
         Cache::dropAll(redis_update: false);
     }
+
+    /**
+     * Reads private static facade state for assertions (test-only introspection).
+     */
+    protected static function cacheState(string $property): mixed
+    {
+        return (new \ReflectionProperty(Cache::class, $property))->getValue();
+    }
 }

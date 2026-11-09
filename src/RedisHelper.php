@@ -13,20 +13,16 @@ class RedisHelper implements RedisHelperInterface
 {
     private LoggerInterface $logger;
 
-    private bool $is_redis_connected;
-
     public RedisClient $redis;
 
     /**
      * @param RedisClient $redis_connector
-     * @param bool $is_redis_connected
      * @param LoggerInterface $logger
      * @return void
      */
-    public function __construct(RedisClient $redis_connector, bool $is_redis_connected, LoggerInterface $logger)
+    public function __construct(RedisClient $redis_connector, LoggerInterface $logger)
     {
         $this->redis = $redis_connector;
-        $this->is_redis_connected = $is_redis_connected;
         $this->logger = $logger;
     }
 
@@ -41,11 +37,6 @@ class RedisHelper implements RedisHelperInterface
     public function fetch(string $key_name, bool $use_json_decode = true): mixed
     {
         $this->logger->info("[redis][fetch] called");
-
-        if ($this->is_redis_connected === false) {
-            $this->logger->info("[redis][fetch] ERROR: REDIS not connected");
-            return null;
-        }
 
         $value = $this->redis->get($key_name, false);
 
@@ -80,12 +71,10 @@ class RedisHelper implements RedisHelperInterface
     {
         $this->logger->info("[redis][push] called");
 
-        if ($this->is_redis_connected === false) {
-            $this->logger->info("[redis][push] ERROR: REDIS not connected");
+        if (!$this->redis->set($key_name, ($use_json_encode ? CacheHelper::jsonize($data) : $data))) {
+            $this->logger->info("[redis][push] ERROR: set failed");
             return false;
         }
-
-        $this->redis->set($key_name, ($use_json_encode ? CacheHelper::jsonize($data) : $data));
         $this->logger->info("[redis][push] Data pushed to REDIS");
 
         if ($ttl > 0) {
@@ -115,10 +104,6 @@ class RedisHelper implements RedisHelperInterface
     {
         $this->logger->info("[redis][del] started");
 
-        if ($this->is_redis_connected === false) {
-            return [];
-        }
-
         $deleted = $this->redis->delete($key_name);
         ksort($deleted);
 
@@ -133,10 +118,6 @@ class RedisHelper implements RedisHelperInterface
     {
         $this->logger->info("[redis][check] called");
 
-        if ($this->is_redis_connected === false) {
-            return false;
-        }
-
         return $this->redis->exists($key_name);
     }
 
@@ -149,10 +130,6 @@ class RedisHelper implements RedisHelperInterface
     public function keys(string $pattern = '*'):array
     {
         $this->logger->info("[redis][keys] called");
-
-        if ($this->is_redis_connected === false) {
-            return [];
-        }
 
         return $this->redis->keys($pattern);
     }

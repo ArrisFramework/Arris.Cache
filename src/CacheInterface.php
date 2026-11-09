@@ -261,6 +261,16 @@ interface CacheInterface
     public static function delCounter(string $key): Result;
 
     /**
+     * Подключён ли Redis.
+     *
+     * Единственный публичный доступ к состоянию соединения: фасад не держит
+     * собственного флага, а читает его у RedisClient.
+     *
+     * @return bool
+     */
+    public static function isRedisConnected(): bool;
+
+    /**
      * Хелпер для работы с Redis.
      *
      * Предоставляет методы, полные аналоги соответствующих методов из основного класса:

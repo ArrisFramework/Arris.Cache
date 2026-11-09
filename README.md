@@ -108,7 +108,7 @@ Cache::dropAll(bool $redis_update = true): Result           // очистить 
 
 ## Redis
 
-Все методы этого раздела требуют установленного подключения к Redis. Если `Cache::init(redis_enabled: true)` не вызывался или соединение не установилось, они бросают `Arris\Toolkit\RedisClientException` с сообщением «REDIS is not connected…».
+Все методы этого раздела, кроме `isRedisConnected()`, требуют установленного подключения к Redis. Если `Cache::init(redis_enabled: true)` не вызывался или соединение не установилось, они бросают `Arris\Toolkit\RedisClientException` с сообщением «REDIS is not connected…».
 
 ```php
 Cache::redisFetch(string $key, bool $use_json_decode = true): mixed // прочитать (JSON-декод)
@@ -124,6 +124,7 @@ Cache::redis()->check(...)                    // хелпер, аналог redi
 Cache::redis()->keys(string $pattern = '*'): array
 
 Cache::getConnector(): RedisClient             // прямой коннектор (Arris\Toolkit\RedisClient)
+Cache::isRedisConnected(): bool                // подключён ли Redis (не бросает исключения)
 ```
 
 `push()` кладёт значение в репозиторий (без TTL) и в Redis (с TTL); `$ttl` применяется только к Redis-копии. `Cache::get()` после экспирации Redis продолжит отдавать значение из памяти процесса — см. предупреждение в разделе про `addRule()`.
@@ -190,7 +191,7 @@ composer install
 vendor/bin/phpunit
 ```
 
-106 тестов / 272 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+107 тестов / 274 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 

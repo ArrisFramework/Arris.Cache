@@ -15,7 +15,7 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertTrue($result->is_success);
         $this->assertSame('Redis disabled', $result->getMessage());
-        $this->assertFalse(Cache::$is_redis_connected);
+        $this->assertFalse(Cache::isRedisConnected());
     }
 
     public function testInitResetsRepository(): void
@@ -159,7 +159,7 @@ class CacheRepositoryTest extends AbstractCacheTestCase
 
         $this->assertTrue($result->is_success);
         $this->assertSame('Cache cleared, REDIS untouched', $result->getMessage());
-        $this->assertSame([], Cache::$repository);
+        $this->assertSame([], self::cacheState('repository'));
     }
 
     public function testRedisHelperThrowsWhenNotConnected(): void

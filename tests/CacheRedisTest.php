@@ -22,7 +22,7 @@ class CacheRedisTest extends AbstractCacheTestCase
 
         Cache::init(redis_host: '127.0.0.1', redis_database: 15, redis_enabled: true);
 
-        if (!Cache::$is_redis_connected) {
+        if (!Cache::isRedisConnected()) {
             $this->markTestSkipped('Redis not available on 127.0.0.1:6379');
         }
 
@@ -37,7 +37,7 @@ class CacheRedisTest extends AbstractCacheTestCase
 
     public function testInitConnectsToRedis(): void
     {
-        $this->assertTrue(Cache::$is_redis_connected);
+        $this->assertTrue(Cache::isRedisConnected());
         $this->assertTrue(Cache::redisCheck('anything_not_present') === false);
     }
 
@@ -90,6 +90,16 @@ class CacheRedisTest extends AbstractCacheTestCase
     public function testRedisFetchReturnsNullForMissingKey(): void
     {
         $this->assertNull(Cache::redisFetch('missing_key'));
+    }
+
+    public function testRedisHelperReconnectsAfterConnectionClose(): void
+    {
+        Cache::redisPush('reconnect', 'value');
+
+        Cache::getConnector()->close();
+
+        $this->assertSame('value', Cache::redisFetch('reconnect'));
+        $this->assertTrue(Cache::redisCheck('reconnect'));
     }
 
     public function testRedisPushWithoutJsonEncode(): void
