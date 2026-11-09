@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Arris\Cache;
 
 use Arris\Cache\Exceptions\CacheCallbackException;

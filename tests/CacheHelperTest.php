@@ -108,14 +108,6 @@ class CacheHelperTest extends TestCase
         CacheHelper::jsonize(fopen('php://memory', 'r'));
     }
 
-    public function testOverrideDefaults(): void
-    {
-        $defaults = ['a' => 1, 'b' => 2];
-        $options = ['b' => 20, 'c' => 30];
-
-        $this->assertSame(['a' => 1, 'b' => 20], CacheHelper::overrideDefaults($defaults, $options));
-    }
-
     public function testCompileCallbackClosure(): void
     {
         $closure = static fn() => 'x';

@@ -29,11 +29,9 @@
         "karelwintersky/arris.entity": "^2",
         "karelwintersky/arris.toolkit.nanoredis": "^1.0.1"
     },
+    "suggest": {
+    },
     "require-dev": {
-        "karelwintersky/arris": "^2",
-        "karelwintersky/arris.helpers": "^0",
-        "karelwintersky/arris.database": "^2",
-        "karelwintersky/arris.logger": "^2",
         "phpunit/phpunit": "^10.5"
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Arris\Cache;
 
 use Arris\Toolkit\RedisClient;
@@ -14,7 +16,7 @@ interface RedisHelperInterface
      *
      * @return bool false — Redis отклонил запись (ключ не изменён)
      */
-    public function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): bool;
+    public function push(string $key_name, mixed $data, int $ttl = 0, bool $use_json_encode = true): bool;
     public function del(string $key_name):array;
     public function check(string $key_name): bool;
     public function keys(string $pattern = '*'):array;

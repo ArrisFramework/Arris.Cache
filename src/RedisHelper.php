@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Arris\Cache;
 
 use Arris\Toolkit\RedisClient;
@@ -59,7 +61,7 @@ class RedisHelper implements RedisHelperInterface
 
     /**
      * @param string $key_name
-     * @param $data
+     * @param mixed $data
      * @param int $ttl
      * @param bool $use_json_encode
      * @return bool
@@ -67,7 +69,7 @@ class RedisHelper implements RedisHelperInterface
      * @throws JsonException
      * @throws RedisException
      */
-    public function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): bool
+    public function push(string $key_name, mixed $data, int $ttl = 0, bool $use_json_encode = true): bool
     {
         $this->logger->info("[redis][push] called", ['key' => $key_name, 'ttl' => $ttl]);
 

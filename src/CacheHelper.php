@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Arris\Cache;
 
 use Arris\Cache\Exceptions\CacheCallbackException;
 use JsonException;
+use Psr\Log\LoggerInterface;
 use function class_exists;
 use function count;
 use function explode;
@@ -34,11 +37,11 @@ class CacheHelper
         
         if ($case_sensitive) {
             return array_filter($source, static function($row) use ($field, $pattern){
-                return mb_strpos($row[ $field ], $pattern) !== false;
+                return mb_strpos((string)$row[ $field ], $pattern) !== false;
             });
         } else {
             return array_filter($source, static function($row) use ($field, $pattern){
-                return mb_stripos( $row[ $field ], $pattern ) !== false;
+                return mb_stripos((string)$row[ $field ], $pattern) !== false;
             });
         }
     }
@@ -49,7 +52,7 @@ class CacheHelper
      *
      * @param array $array
      * @param string $key
-     * @param string $value
+     * @param mixed $value
      * @param bool $strict -- использовать ли строгое сравнение?
      * @return array|null
      */
@@ -114,7 +117,7 @@ class CacheHelper
      * @param int $ttl
      * @throws JsonException
      */
-    public static function raiseFlag(string $flag, int $value = 1, $ttl = 86400)
+    public static function raiseFlag(string $flag, int $value = 1, int $ttl = 86400): void
     {
         Cache::redisPush($flag, $value, $ttl);
     }
@@ -122,32 +125,13 @@ class CacheHelper
     /**
      * Конвертирует в JSON
      *
-     * @param $data
-     * @return false|string
+     * @param mixed $data
+     * @return string
      * @throws JsonException
      */
-    public static function jsonize($data)
+    public static function jsonize(mixed $data): string
     {
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * Перезаписывает набор дефолтных значений на основе переданного списка опций
-     * @todo: -> Arris helpers
-     *
-     * @param $defaults
-     * @param $options
-     * @return mixed
-     */
-    public static function overrideDefaults($defaults, $options): mixed
-    {
-        $source = $defaults;
-        array_walk($source, static function (&$default, $key) use ($options) {
-            if (array_key_exists($key, $options)) {
-                $default = $options[$key];
-            }
-        } );
-        return $source;
     }
 
     /**
@@ -188,7 +172,7 @@ class CacheHelper
      * @throws CacheCallbackException
      * @todo: обновить в Arris\Router ?)
      */
-    public static function compileCallbackHandler($actor, $logger): array
+    public static function compileCallbackHandler(mixed $actor, LoggerInterface $logger): array
     {
         if ($actor instanceof \Closure) {
             return [
