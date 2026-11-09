@@ -59,6 +59,34 @@ class CacheHelperTest extends TestCase
         $this->assertSame($source, CacheHelper::searchHashLike($source, 'name'));
     }
 
+    public function testSearchHashLikeSkipsSparseRowsWithoutWarnings(): void
+    {
+        $source = [
+            ['name' => 'apple'],
+            ['other' => 'apple'],
+            ['name' => null],
+            'not-an-array',
+            ['name' => ['apple']],
+            ['name' => 'pineapple'],
+        ];
+
+        $this->assertSame(
+            [0 => ['name' => 'apple'], 5 => ['name' => 'pineapple']],
+            CacheHelper::searchHashLike($source, 'name', 'apple')
+        );
+    }
+
+    public function testSearchHashLikeZeroFieldAndPatternAreNotTreatedAsEmpty(): void
+    {
+        $source = [
+            ['0' => 'zero', 'name' => '0'],
+            ['0' => 'other', 'name' => 'x'],
+        ];
+
+        $this->assertSame([0 => $source[0]], CacheHelper::searchHashLike($source, '0', 'zero'));
+        $this->assertSame([0 => $source[0]], CacheHelper::searchHashLike($source, 'name', '0'));
+    }
+
     public function testSearchHashAsKeyValueFindsRow(): void
     {
         $source = [
@@ -83,6 +111,40 @@ class CacheHelperTest extends TestCase
         $this->assertNull(CacheHelper::searchHashAsKeyValue([['id' => 1]], 'id', 'nope'));
     }
 
+    public function testSearchHashAsKeyValueMissingKeyNeverMatchesFalseyValues(): void
+    {
+        $source = [['name' => 'no-id']];
+
+        foreach ([0, false, '', null] as $value) {
+            $this->assertNull(
+                CacheHelper::searchHashAsKeyValue($source, 'id', $value),
+                'Missing key must not match ' . var_export($value, true)
+            );
+        }
+
+        $this->assertNull(CacheHelper::searchHashAsKeyValue($source, 'id', null, strict: true));
+    }
+
+    public function testSearchHashAsKeyValueSkipsNonArrayRows(): void
+    {
+        $source = [null, 'scalar', ['id' => 5], ['name' => 'x']];
+
+        $this->assertSame(['id' => 5], CacheHelper::searchHashAsKeyValue($source, 'id', 5, strict: true));
+    }
+
+    public function testSearchHashAsKeyValueReturnsFirstMatch(): void
+    {
+        $source = [
+            ['id' => 1, 'name' => 'first'],
+            ['id' => 1, 'name' => 'second'],
+        ];
+
+        $this->assertSame(
+            ['id' => 1, 'name' => 'first'],
+            CacheHelper::searchHashAsKeyValue($source, 'id', 1, strict: true)
+        );
+    }
+
     public function testSortHashBySubkey(): void
     {
         $dataset = [
@@ -94,6 +156,29 @@ class CacheHelperTest extends TestCase
         $sorted = CacheHelper::sortHashBySubkey($dataset, 'id');
 
         $this->assertSame([1, 2, 3], array_column($sorted, 'id'));
+    }
+
+    public function testSortHashBySubkeyEmptyOrderByReturnsDatasetUntouched(): void
+    {
+        $dataset = [['id' => 2], ['id' => 1]];
+
+        $this->assertSame($dataset, CacheHelper::sortHashBySubkey($dataset, ''));
+    }
+
+    public function testSortHashBySubkeyPutsRowsWithoutValueLast(): void
+    {
+        $dataset = [
+            ['id' => 2, 'name' => 'b'],
+            ['name' => 'no-id'],
+            ['id' => 1, 'name' => 'a'],
+            ['id' => null, 'name' => 'null-id'],
+            'scalar',
+            ['id' => 3, 'name' => 'c'],
+        ];
+
+        $sorted = CacheHelper::sortHashBySubkey($dataset, 'id');
+
+        $this->assertSame(['a', 'b', 'c', 'no-id', 'null-id'], array_column($sorted, 'name'));
     }
 
     public function testJsonizePreservesUnicodeAndZeroFraction(): void

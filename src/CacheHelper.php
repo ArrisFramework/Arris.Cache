@@ -7,12 +7,16 @@ namespace Arris\Cache;
 use Arris\Cache\Exceptions\CacheCallbackException;
 use JsonException;
 use Psr\Log\LoggerInterface;
+use function array_key_exists;
+use function array_filter;
 use function class_exists;
 use function count;
 use function explode;
+use function is_array;
+use function is_scalar;
 use function is_string;
 use function mb_strpos;
-use function array_filter;
+use function mb_stripos;
 use function method_exists;
 use function strpos;
 
@@ -21,7 +25,11 @@ class CacheHelper
     /**
      * Перебирает весь двумерный массив $source и возвращает те строки, в столбце $field которых есть $pattern
      *
-     * Если $pattern пуст - возвращается весь массив $source
+     * Если $pattern или $field — пустая строка, возвращается весь массив $source
+     * (значение "0" пустым не считается).
+     *
+     * Строки без поля $field, не-массивы и значения-массивы/объекты пропускаются
+     * без warning'ов.
      *
      * @param array $source
      * @param string $field
@@ -31,24 +39,38 @@ class CacheHelper
      */
     public static function searchHashLike(array $source, string $field, string $pattern = '', bool $case_sensitive = false):array
     {
-        if (empty($pattern) || empty($field)) {
+        if ($field === '' || $pattern === '') {
             return $source;
         }
-        
-        if ($case_sensitive) {
-            return array_filter($source, static function($row) use ($field, $pattern){
-                return mb_strpos((string)$row[ $field ], $pattern) !== false;
-            });
-        } else {
-            return array_filter($source, static function($row) use ($field, $pattern){
-                return mb_stripos((string)$row[ $field ], $pattern) !== false;
-            });
-        }
+
+        return array_filter($source, static function ($row) use ($field, $pattern, $case_sensitive): bool {
+            if (!is_array($row) || !array_key_exists($field, $row)) {
+                return false;
+            }
+
+            $value = $row[ $field ];
+
+            // null и скаляры сравниваем как строки; массивы/объекты пропускаем:
+            // для них поиск подстроки не имеет смысла (и дал бы warning конверсии).
+            if ($value !== null && !is_scalar($value)) {
+                return false;
+            }
+
+            $haystack = (string)$value;
+            $position = $case_sensitive
+                ? mb_strpos($haystack, $pattern)
+                : mb_stripos($haystack, $pattern);
+
+            return $position !== false;
+        });
     }
     
     /**
      * Ищет в массиве $array подмассив, ключ $key которого == $value
      * Бывший Arr::array_filter_subject
+     *
+     * Отсутствующий ключ никогда не совпадает (в т.ч. при поиске 0/false/''/null
+     * в нестрогом режиме). Если совпадений несколько — возвращается первое.
      *
      * @param array $array
      * @param string $key
@@ -61,51 +83,58 @@ class CacheHelper
         if (empty($array)) {
             return null;
         }
-        if ($strict) {
-            $r = array_filter($array, static function($sub) use ($value, $key) {
-                return $sub[$key] === $value;
-            });
-        } else {
-            $r = array_filter($array, static function($sub) use ($value, $key) {
-                return $sub[$key] == $value;
-            });
-        }
-        
-        if (!empty($r)) {
-            return array_pop($r);
-        }
-        return null;
+
+        $matches = array_filter($array, static function ($sub) use ($key, $value, $strict): bool {
+            if (!is_array($sub) || !array_key_exists($key, $sub)) {
+                return false;
+            }
+
+            return $strict ? $sub[$key] === $value : $sub[$key] == $value;
+        });
+
+        return empty($matches) ? null : reset($matches);
     }
     
     /**
-     * Сортирует двумерный массив по ключу подмассива
+     * Сортирует двумерный массив по ключу подмассива.
      *
-     * @todo: требуется тестирование потому что, похоже, не работает
+     * Строки без ключа $order_by, со значением null и не-массивы помещаются
+     * в конец, сохраняя относительный порядок между собой.
+     * Пустой $order_by — сортировка не выполняется, возвращается исходный набор.
      *
      * @param array $dataset
      * @param string $order_by
-     * @param bool $strict
+     * @param bool $strict -- строгое сравнение при определении равенства элементов
      * @return array
      */
     public static function sortHashBySubkey(array $dataset, string $order_by, bool $strict = false):array
     {
-        usort($dataset, static function ($left, $right) use ($order_by, $strict){
-            if (!isset($left[$order_by], $right[$order_by])) {
+        if ($order_by === '') {
+            return $dataset;
+        }
+
+        usort($dataset, static function ($left, $right) use ($order_by, $strict): int {
+            $left_has_value = is_array($left) && array_key_exists($order_by, $left) && $left[$order_by] !== null;
+            $right_has_value = is_array($right) && array_key_exists($order_by, $right) && $right[$order_by] !== null;
+
+            // Строки без значения — в конец (между собой равны, sort стабилен в PHP 8+).
+            if (!$left_has_value && !$right_has_value) {
                 return 0;
             }
-            
-            if ($strict) {
-                if ($left[$order_by] === $right[$order_by]) {
-                    return 0;
-                }
-            } else {
-                if ($left[$order_by] == $right[$order_by]) {
-                    return 0;
-                }
+            if (!$left_has_value) {
+                return 1;
             }
-            
-            return ($left[$order_by] < $right[$order_by]) ? -1 : 1;
+            if (!$right_has_value) {
+                return -1;
+            }
+
+            $is_equal = $strict
+                ? $left[$order_by] === $right[$order_by]
+                : $left[$order_by] == $right[$order_by];
+
+            return $is_equal ? 0 : $left[$order_by] <=> $right[$order_by];
         });
+
         return $dataset;
     }
     

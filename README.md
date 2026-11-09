@@ -178,11 +178,13 @@ if ($result->is_success) {
 | `TIME_MONTH`    | 2592000  |                                 |
 | `TIME_YEAR`     | 31104000 |                                 |
 
+> С 1.2.14 интерфейс `CacheInterface` удалён. Все константы (`TIME_*`, `RULE_SOURCE_*`, `REDIS_DEFAULT_*`) объявлены на `Cache`; заменяйте `CacheInterface::TIME_MINUTE` на `Cache::TIME_MINUTE` (обращение к удалённому классу — фатальная ошибка).
+
 ## Утилиты: `CacheHelper`
 
-- `searchHashLike($source, $field, $pattern, $case_sensitive)` — фильтр строк 2D-массива по подстроке в колонке;
-- `searchHashAsKeyValue($array, $key, $value, $strict)` — найти подмассив по значению колонки;
-- `sortHashBySubkey($dataset, $order_by, $strict)` — usort по ключу подмассива;
+- `searchHashLike($source, $field, $pattern, $case_sensitive)` — фильтр строк 2D-массива по подстроке в колонке; строки без поля, не-массивы и значения-массивы пропускаются без warning'ов;
+- `searchHashAsKeyValue($array, $key, $value, $strict)` — найти подмассив по значению колонки; отсутствующий ключ не совпадает (в т.ч. при поиске `0`/`false`/`''`/`null`), возвращается первое совпадение;
+- `sortHashBySubkey($dataset, $order_by, $strict)` — usort по ключу подмассива; строки без ключа/со значением `null`/не-массивы уходят в конец, пустой `$order_by` — вернуть набор без сортировки;
 - `raiseFlag($flag, $value, $ttl)` — тонкая обёртка над `redisPush`;
 - `jsonize($data)` — `json_encode` (UNICODE | PRESERVE_ZERO_FRACTION | INVALID_UTF8_SUBSTITUTE | THROW_ON_ERROR);
 - `fetchOptionBool($option, $if_present, $if_not_present_or_zero)` — чтение 0/1-флага из Redis;
