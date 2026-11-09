@@ -432,8 +432,13 @@ class Cache
 
         if ($redis_update && self::isRedisConnected()) {
             self::$logger?->info("[dropAll] flushing REDIS database");
-            self::$redis->flushDatabase();
-            $result->success("Cache cleared, REDIS database flushed");
+
+            if (self::getConnector()->flushDatabase()) {
+                $result->success("Cache cleared, REDIS database flushed");
+            } else {
+                self::$logger?->error("[dropAll] REDIS flush failed");
+                $result->error("Cache cleared, REDIS flush failed");
+            }
         } elseif ($redis_update) {
             $result->success("Cache cleared, REDIS not connected");
         } else {
@@ -754,8 +759,12 @@ class Cache
     {
         $redis = self::$redis;
 
-        if ($redis === null || !$redis->is_connected) {
-            throw new RedisClientException("REDIS is not connected: call Cache::init() with redis_enabled=true");
+        if ($redis === null) {
+            throw new RedisClientException("REDIS is not connected: Cache::init() was not called with redis_enabled=true");
+        }
+
+        if (!$redis->is_connected) {
+            throw new RedisClientException("REDIS is not connected: init() could not establish a connection");
         }
 
         return $redis;

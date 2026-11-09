@@ -175,7 +175,7 @@ class CacheHelper
      */
     public static function fetchOptionBool(string $option = '', int $if_present = 1, int $if_not_present_or_zero = 0):int
     {
-        if (empty($option)) {
+        if ($option === '') {
             return $if_not_present_or_zero;
         }
 

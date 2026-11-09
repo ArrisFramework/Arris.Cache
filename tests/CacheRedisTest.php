@@ -109,6 +109,33 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertSame('plain', Cache::redisFetch('raw', use_json_decode: false));
     }
 
+    public function testRedisPushWithoutJsonEncodeStoresScalarsAsIs(): void
+    {
+        // use_json_encode:false — «как есть», без JSON-обёртки.
+        Cache::redisPush('raw_str', 'plain', use_json_encode: false);
+        Cache::redisPush('raw_numstr', '042', use_json_encode: false);
+        Cache::redisPush('raw_bool', true, use_json_encode: false);
+        Cache::redisPush('raw_null', null, use_json_encode: false);
+
+        $this->assertSame('plain', Cache::redisFetch('raw_str', use_json_decode: false));
+        $this->assertSame('042', Cache::redisFetch('raw_numstr', use_json_decode: false));
+        $this->assertSame('1', Cache::redisFetch('raw_bool', use_json_decode: false));
+        $this->assertSame('', Cache::redisFetch('raw_null', use_json_decode: false));
+
+        // Для сравнения — те же скаляры с JSON-кодированием.
+        Cache::redisPush('json_str', 'plain');
+        Cache::redisPush('json_bool', true);
+        Cache::redisPush('json_null', null);
+
+        $this->assertSame('"plain"', Cache::redisFetch('json_str', use_json_decode: false));
+        $this->assertSame('true', Cache::redisFetch('json_bool', use_json_decode: false));
+        $this->assertSame('null', Cache::redisFetch('json_null', use_json_decode: false));
+
+        // Массив без JSON-кодирования сохранить нельзя: клиент кодирует его сам.
+        Cache::redisPush('raw_array', ['a' => 1], use_json_encode: false);
+        $this->assertSame('{"a":1}', Cache::redisFetch('raw_array', use_json_decode: false));
+    }
+
     public function testRedisPushReturnsResult(): void
     {
         $result = Cache::redisPush('key', 1);
@@ -125,7 +152,7 @@ class CacheRedisTest extends AbstractCacheTestCase
         $result = Cache::redisDel('mask_*');
 
         $this->assertTrue($result->is_success);
-        $this->assertCount(2, $result->raw_array);
+        $this->assertSame(['mask_1', 'mask_2'], $result->raw_array);
         $this->assertFalse(Cache::redisCheck('mask_1'));
         $this->assertFalse(Cache::redisCheck('mask_2'));
     }
@@ -351,6 +378,10 @@ class CacheRedisTest extends AbstractCacheTestCase
 
         $this->assertSame(0, CacheHelper::fetchOptionBool('missing_flag', 7, 0));
         $this->assertSame(0, CacheHelper::fetchOptionBool('', 7, 0));
+
+        // "0" — валидное имя ключа, а не пустая опция.
+        CacheHelper::raiseFlag('0', 1);
+        $this->assertSame(7, CacheHelper::fetchOptionBool('0', 7, 0));
     }
 
     public function testGetConnectorTalksToRedis(): void
@@ -358,5 +389,6 @@ class CacheRedisTest extends AbstractCacheTestCase
         Cache::getConnector()->set('c_key', 1);
 
         $this->assertTrue(Cache::redisCheck('c_key'));
+        $this->assertInstanceOf(\Arris\Toolkit\RedisClient::class, Cache::redis()->getConnector());
     }
 }

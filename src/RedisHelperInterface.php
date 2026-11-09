@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Arris\Cache;
 
 use Arris\Toolkit\RedisClient;
-use Psr\Log\LoggerInterface;
 
 interface RedisHelperInterface
 {
-    public function __construct(RedisClient $redis_connector, LoggerInterface $logger);
     public function fetch(string $key_name, bool $use_json_decode = true): mixed;
     /**
      * Атомарная запись: SETEX при `$ttl > 0`, иначе SET.
+     *
+     * `$use_json_encode = false` — для скаляров: значение хранится как есть.
+     * Массивы всё равно JSON-кодируются внутри RedisClient (Redis хранит строки).
      *
      * @return bool false — Redis отклонил запись (ключ не изменён)
      */
@@ -21,4 +22,8 @@ interface RedisHelperInterface
     public function check(string $key_name): bool;
     public function keys(string $pattern = '*'):array;
 
+    /**
+     * Прямой коннектор к Redis.
+     */
+    public function getConnector(): RedisClient;
 }

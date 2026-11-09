@@ -60,6 +60,18 @@ class CacheRedisWriteFailureTest extends AbstractCacheTestCase
         $this->assertSame('v', Cache::get('ttl_rule'));
     }
 
+    public function testDropAllReportsRedisFlushFailure(): void
+    {
+        $this->useFailingRedis();
+        Cache::set('a', 1);
+
+        $result = Cache::dropAll(redis_update: true);
+
+        $this->assertFalse($result->is_success);
+        $this->assertStringContainsString('REDIS flush failed', $result->getMessage());
+        $this->assertFalse(Cache::check('a'));
+    }
+
     /**
      * Swaps the facade's client for a stub whose writes fail; the stub is
      * marked connected so addRule()/push() take the Redis write branch.

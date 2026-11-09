@@ -15,7 +15,7 @@ class RedisHelper implements RedisHelperInterface
 {
     private LoggerInterface $logger;
 
-    public RedisClient $redis;
+    private RedisClient $redis;
 
     /**
      * @param RedisClient $redis_connector
@@ -29,12 +29,24 @@ class RedisHelper implements RedisHelperInterface
     }
 
     /**
+     * Прямой коннектор к Redis.
+     */
+    public function getConnector(): RedisClient
+    {
+        return $this->redis;
+    }
+
+    /**
      * @param string $key_name
      * @param bool $use_json_decode
      * @return mixed
      * @throws RedisClientException
      * @throws JsonException
      * @throws RedisException
+     *
+     * При `$use_json_decode = true` (по умолчанию) любое непустое значение
+     * декодируется как JSON; «сырые» не-JSON строки, записанные с
+     * `use_json_encode = false`, нужно читать с `$use_json_decode = false`.
      */
     public function fetch(string $key_name, bool $use_json_decode = true): mixed
     {
@@ -68,6 +80,11 @@ class RedisHelper implements RedisHelperInterface
      * @throws RedisClientException
      * @throws JsonException
      * @throws RedisException
+     *
+     * `$use_json_encode = false` — для скаляров: значение хранится как есть,
+     * без JSON-обёртки (строка без кавычек, bool → "1", null → "").
+     * Массивы/объекты всё равно JSON-кодируются внутри RedisClient, потому что
+     * Redis хранит только строки.
      */
     public function push(string $key_name, mixed $data, int $ttl = 0, bool $use_json_encode = true): bool
     {
@@ -109,7 +126,7 @@ class RedisHelper implements RedisHelperInterface
         $this->logger->info("[redis][del] started");
 
         $deleted = $this->redis->delete($key_name);
-        ksort($deleted);
+        sort($deleted);
 
         return $deleted;
     }

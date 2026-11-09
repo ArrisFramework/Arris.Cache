@@ -133,12 +133,28 @@ Cache::redis()->push(...)                     // хелпер, аналог redi
 Cache::redis()->del(...)                      // хелпер, аналог redisDel
 Cache::redis()->check(...)                    // хелпер, аналог redisCheck
 Cache::redis()->keys(string $pattern = '*'): array
+Cache::redis()->getConnector(): RedisClient   // тот же клиент, что и Cache::getConnector()
 
 Cache::getConnector(): RedisClient             // прямой коннектор (Arris\Toolkit\RedisClient)
 Cache::isRedisConnected(): bool                // подключён ли Redis (не бросает исключения)
 ```
 
 `push()` кладёт значение в репозиторий (без TTL) и в Redis (с TTL); `$ttl` применяется только к Redis-копии. `Cache::get()` после экспирации Redis продолжит отдавать значение из памяти процесса — см. предупреждение в разделе про `addRule()`.
+
+### `use_json_encode` / `use_json_decode`
+
+`use_json_encode: false` нужен для **скаляров**: значение уходит в Redis как есть, без JSON-обёртки (единственный способ сохранить строку без кавычек и ведущие нули).
+
+| значение | `true` (по умолчанию) | `false` |
+|---|---|---|
+| `'plain'` | `"plain"` | `plain` |
+| `'042'` | `"042"` | `042` |
+| `42`, `1.5` | `42`, `1.5` | `42`, `1.5` |
+| `true` | `true` | `1` |
+| `null` | `null` | `` (пустая строка) |
+| `['a' => 1]` | `{"a":1}` | `{"a":1}` — Redis хранит только строки |
+
+Читать «сырые» не-JSON строки нужно с `use_json_decode: false` (числа — исключение: `42`/`1.5` — валидный JSON и декодируются).
 
 ## Счётчики
 
@@ -203,9 +219,9 @@ composer install
 vendor/bin/phpunit
 ```
 
-107 тестов / 274 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
+129 тестов / 332 assertions (phpunit `^10.5`). Redis-тесты работают в изолированной БД 15 и автоматически пропускаются, если Redis недоступен — набор проходит и без Redis. SQL-тесты используют SQLite `:memory:`, MySQL не требуется.
 
 ## TODO
 
-- нужен ли кастомный декодер json?
-- сделать алиас `flush()` как аналог `drop()`
+- (отложено) нужен ли кастомный декодер json?
+- (отложено) сделать алиас `flush()` как аналог `drop()`

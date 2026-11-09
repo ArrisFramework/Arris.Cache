@@ -101,7 +101,7 @@ class CachePreInitTest extends TestCase
     public function testRedisHelperThrowsBeforeInit(): void
     {
         $this->expectException(RedisClientException::class);
-        $this->expectExceptionMessage('REDIS is not connected');
+        $this->expectExceptionMessage('was not called with redis_enabled=true');
 
         Cache::redis();
     }
@@ -109,7 +109,7 @@ class CachePreInitTest extends TestCase
     public function testGetConnectorThrowsBeforeInit(): void
     {
         $this->expectException(RedisClientException::class);
-        $this->expectExceptionMessage('REDIS is not connected');
+        $this->expectExceptionMessage('was not called with redis_enabled=true');
 
         Cache::getConnector();
     }
@@ -135,6 +135,13 @@ class CachePreInitTest extends TestCase
                 "Cache::\${$property} must be private"
             );
         }
+    }
+
+    public function testRedisHelperClientPropertyIsPrivate(): void
+    {
+        $this->assertTrue(
+            (new \ReflectionProperty(\Arris\Cache\RedisHelper::class, 'redis'))->isPrivate()
+        );
     }
 
     private static function cacheState(string $property): mixed

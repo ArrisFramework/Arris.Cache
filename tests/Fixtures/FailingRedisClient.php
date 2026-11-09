@@ -16,4 +16,9 @@ class FailingRedisClient extends RedisClient
     {
         return false;
     }
+
+    public function flushDatabase($async = null): bool
+    {
+        return false;
+    }
 }

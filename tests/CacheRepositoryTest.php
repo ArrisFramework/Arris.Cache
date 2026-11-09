@@ -30,6 +30,25 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertNull(Cache::get('stale'));
     }
 
+    public function testRedisHelperReportsFailedInitConnection(): void
+    {
+        // Состояние после init(): клиент создан, но соединение не установлено.
+        \Closure::bind(static function (): void {
+            Cache::$redis = new \Arris\Toolkit\RedisClient(enabled: false);
+            Cache::$redis_helper = null;
+        }, null, Cache::class)();
+
+        $this->assertFalse(Cache::isRedisConnected());
+
+        try {
+            Cache::redis();
+            $this->fail('Expected RedisClientException');
+        } catch (RedisClientException $e) {
+            $this->assertStringContainsString('could not establish a connection', $e->getMessage());
+            $this->assertStringContainsString('REDIS is not connected', $e->getMessage());
+        }
+    }
+
     public function testInitPassesRedisPasswordToClient(): void
     {
         Cache::init(redis_enabled: false, redis_password: 'secret');
