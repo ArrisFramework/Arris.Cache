@@ -2,14 +2,16 @@
 
 namespace Arris\Cache;
 
+use Arris\Cache\Exceptions\CacheCallbackException;
+use Arris\Cache\Exceptions\CacheDatabaseException;
+use Arris\Entity\Result;
 use Arris\Toolkit\RedisClient;
+use Arris\Toolkit\RedisClientException;
+use JsonException;
 use PDO;
 use PDOException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Arris\Cache\Exceptions\CacheDatabaseException;
-use Arris\Entity\Result;
-use Arris\Toolkit\RedisClientException;
 use RedisException;
 
 use function array_key_exists;
@@ -22,8 +24,23 @@ use function is_null;
 use function json_decode;
 use function strpbrk;
 
-class Cache implements CacheInterface
+/**
+ * Кэш = in-memory репозиторий + опциональный Redis.
+ *
+ * Redis — персистентный слой: при подключении значения читаются из него и
+ * записываются в него; без подключения репозиторий (Cache) работает самостоятельно.
+ *
+ * ВАЖНО: TTL (`$ttl` в addRule/push/redisPush) применяется только к ключам Redis.
+ * Репозиторий — обычный массив без времени жизни; get() не обращается к Redis и
+ * не проверяет TTL. После экспирации ключа в Redis копия в памяти процесса
+ * остаётся до addRule()/drop()/dropAll()/init().
+ */
+class Cache
 {
+    public const REDIS_DEFAULT_HOST = '127.0.0.1';
+    public const REDIS_DEFAULT_PORT = 6379;
+    public const REDIS_DEFAULT_DB   = 0;
+
     public const TIME_SECOND    = 1;
     public const TIME_MINUTE    = self::TIME_SECOND * 60;
     public const TIME_HOUR      = self::TIME_MINUTE * 60;
@@ -47,12 +64,28 @@ class Cache implements CacheInterface
 
     private static ?RedisHelper $redis_helper = null;
 
+    /**
+     * Инициализирует кэш (репозиторий и, опционально, подключение к Redis).
+     *
+     * При каждом вызове очищает in-memory репозиторий; данные в Redis не трогаются.
+     *
+     * @param string $redis_host
+     * @param int $redis_port
+     * @param int $redis_database
+     * @param bool $redis_enabled
+     * @param PDO|null $PDO
+     * @param LoggerInterface|null $logger
+     * @param string|null $redis_password пароль Redis (передаётся клиенту как `auth`; пустая строка = без пароля)
+     *
+     * @return Result Ошибка подключения к Redis возвращается как `Result::error`, а не исключение.
+     * @throws RedisClientException если не установлено расширение ext-redis (конструктор RedisClient)
+     */
     public static function init(
         string $redis_host = self::REDIS_DEFAULT_HOST,
         int $redis_port = self::REDIS_DEFAULT_PORT,
         int $redis_database = self::REDIS_DEFAULT_DB,
         bool $redis_enabled = true,
-        $PDO = null,
+        ?PDO $PDO = null,
         ?LoggerInterface $logger = null,
         ?string $redis_password = null
     ): Result
@@ -62,8 +95,7 @@ class Cache implements CacheInterface
         self::$logger = is_null($logger) ? new NullLogger() : $logger;
         self::$pdo = $PDO;
 
-        // Повторный init() начинает с чистого репозитория: старые значения
-        // могли быть загружены из другого Redis-подключения/БД.
+        // Повторный init() начинает с чистого репозитория: старые значения могли быть загружены из другого Redis-подключения/БД.
         self::$repository = [];
 
         self::$redis = new RedisClient(
@@ -98,7 +130,28 @@ class Cache implements CacheInterface
     }
 
 
-    public static function addRule($rule_name, bool $enabled = true, string $source = '', $action = null, int $ttl = 0):Result
+    /**
+     * Добавляет ПРАВИЛО: значение в репозиторий — из Redis по ключу или из указанного источника.
+     *
+     * Если Redis подключён и ключ существует, значение берётся из Redis (его TTL
+     * продолжает жить в Redis) и кладётся в репозиторий; источник не вычисляется.
+     *
+     * @param string $rule_name  ключ
+     * @param bool $enabled      включено ли правило
+     * @param string $source     источник данных: RULE_SOURCE_SQL, RULE_SOURCE_CALLBACK, RULE_SOURCE_RAW
+     * @param mixed|null $action SQL-запрос, коллбэк/`[handler, params]` или сырое значение
+     * @param int $ttl           TTL Redis-копии в секундах, 0 — вечно; на репозиторий не действует
+     *
+     * @return Result При подключённом Redis запись зеркалится атомарно (SETEX/SET);
+     *                если Redis отклонил запись, возвращается ошибка, а значение
+     *                остаётся в репозитории.
+     *
+     * @throws CacheDatabaseException если SQL-источник бросил PDOException
+     * @throws CacheCallbackException если описание коллбэка некорректно
+     * @throws JsonException если результат не удалось JSON-кодировать для Redis
+     * @throws RedisException|RedisClientException если операция с Redis бросила исключение
+     */
+    public static function addRule(string $rule_name, bool $enabled = true, string $source = '', mixed $action = null, int $ttl = 0):Result
     {
         $result = new Result();
         self::$logger?->info("[addRule] called for `{$rule_name}`");
@@ -220,7 +273,15 @@ class Cache implements CacheInterface
         return $result;
     }
 
-    public static function get(string $key, $default = null):mixed
+    /**
+     * Возвращает данные из репозитория кэша.
+     *
+     * @param string $key
+     * @param mixed|null $default значение при отсутствии ключа
+     *
+     * @return mixed
+     */
+    public static function get(string $key, mixed $default = null):mixed
     {
         if (self::check($key)) {
             self::$logger?->info("[get] Getting {$key} from cache");
@@ -229,7 +290,14 @@ class Cache implements CacheInterface
         return $default;
     }
 
-    public static function set(string $key, $data): void
+    /**
+     * Добавляет значение в репозиторий кэша, заменяя старое.
+     *
+     * @param string $key
+     * @param mixed $data
+     * @return void
+     */
+    public static function set(string $key, mixed $data): void
     {
         self::unset($key);
         self::$repository[ $key ] = $data;
@@ -237,6 +305,12 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Удаляет значение из репозитория кэша.
+     *
+     * @param string $key
+     * @return void
+     */
     public static function unset(string $key):void
     {
         if (self::check($key)) {
@@ -246,6 +320,12 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Проверяет наличие данных в репозитории кэша.
+     *
+     * @param string $key
+     * @return bool
+     */
     public static function check(string $key): bool
     {
         $is_present = array_key_exists($key, self::$repository);
@@ -254,6 +334,18 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Удаляет ключ из репозитория и Redis.
+     *
+     * Без подключённого Redis удаляется только из репозитория.
+     * Допустима glob-маска: `article*`, `*rticl*`; маска `*` — все ключи.
+     *
+     * @param string $key
+     * @param bool $redis_update
+     * @return Result
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function drop(string $key, bool $redis_update = true): Result
     {
         $result = new Result();
@@ -314,6 +406,14 @@ class Cache implements CacheInterface
         return $dropped;
     }
 
+    /**
+     * Удаляет все ключи из репозитория и Redis.
+     *
+     * @param bool $redis_update
+     * @return Result
+     * @throws RedisClientException
+     * @throws RedisException
+     */
     public static function dropAll(bool $redis_update = true): Result
     {
         $result = new Result();
@@ -345,12 +445,37 @@ class Cache implements CacheInterface
         return self::$redis?->is_connected === true;
     }
 
+    /**
+     * Извлекает данные из Redis по ключу, декодируя JSON.
+     *
+     * @param string $key_name
+     * @param bool $use_json_decode false — не декодировать
+     * @return mixed
+     * @throws RedisException
+     * @throws RedisClientException
+     * @throws JsonException
+     */
     public static function redisFetch(string $key_name, bool $use_json_decode = true): mixed
     {
         return self::redis()->fetch($key_name, $use_json_decode);
     }
 
-    public static function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result
+    /**
+     * Добавляет значение в репозиторий кэша и, если Redis подключён, в Redis.
+     *
+     * Без подключённого Redis значение остаётся только в репозитории.
+     * Запись в Redis атомарна (SETEX при `$ttl > 0`, иначе SET).
+     *
+     * @param string $key_name
+     * @param mixed $data
+     * @param int $ttl TTL только для Redis-копии; значение в репозитории не истекает
+     * @param bool $use_json_encode
+     * @return Result Ошибка записи в Redis не откатывает репозиторий, но возвращается как `Result::error`.
+     * @throws JsonException
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public static function push(string $key_name, mixed $data, int $ttl = 0, bool $use_json_encode = true): Result
     {
         $result = new Result();
         self::set($key_name, $data);
@@ -374,7 +499,21 @@ class Cache implements CacheInterface
 
     /* == REDIS ACCESS HELPERS == */
 
-    public static function redisPush(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): Result
+    /**
+     * Кладёт данные в Redis (и только в Redis), JSON-кодируя их.
+     *
+     * При `$ttl = 0` ключ не истекает.
+     *
+     * @param string $key_name
+     * @param mixed $data
+     * @param int $ttl
+     * @param bool $use_json_encode
+     * @return Result `is_success` — удалось ли записать в Redis
+     * @throws JsonException
+     * @throws RedisException
+     * @throws RedisClientException
+     */
+    public static function redisPush(string $key_name, mixed $data, int $ttl = 0, bool $use_json_encode = true): Result
     {
         $pushed = self::redis()->push($key_name, $data, $ttl, $use_json_encode);
 
@@ -388,6 +527,16 @@ class Cache implements CacheInterface
         return $result;
     }
 
+    /**
+     * Удаляет данные в Redis по ключу; допустима маска.
+     *
+     * Список удалённых ключей — в `$result->raw_array`.
+     *
+     * @param string $key_name
+     * @return Result
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function redisDel(string $key_name): Result
     {
         $result = new Result();
@@ -403,11 +552,29 @@ class Cache implements CacheInterface
         return $result;
     }
 
+    /**
+     * Проверяет существование ключа в Redis.
+     *
+     * @param string $key_name
+     * @return bool
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function redisCheck(string $key_name): bool
     {
         return self::redis()->check($key_name);
     }
 
+    /**
+     * Создаёт (или переинициализирует) счётчик — целое число — в кэше и Redis
+     * (если подключён). Счётчики создаются навечно: TTL не выставляется.
+     *
+     * @param string $key
+     * @param int $initial
+     * @return int
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function addCounter(string $key, int $initial = 0): int
     {
         self::$logger?->info("[addCounter] started");
@@ -428,6 +595,15 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Увеличивает счётчик в кэше и Redis (если подключён).
+     *
+     * @param string $key
+     * @param int $diff
+     * @return int
+     * @throws RedisException
+     * @throws RedisClientException если Redis не смог выполнить incrBy
+     */
     public static function incrCounter(string $key, int $diff = 1): int
     {
         self::$logger?->info("[incrCounter] started");
@@ -453,6 +629,15 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Уменьшает счётчик в кэше и Redis (если подключён).
+     *
+     * @param string $key
+     * @param int $diff
+     * @return int
+     * @throws RedisException
+     * @throws RedisClientException если Redis не смог выполнить decrBy
+     */
     public static function decrCounter(string $key, int $diff = 1): int
     {
         self::$logger?->info("[decrCounter] started");
@@ -478,6 +663,18 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Возвращает значение счётчика из Redis или кэша.
+     *
+     * Если Redis подключён и ключа там нет, возвращается `$default`,
+     * а устаревшая копия в репозитории очищается.
+     *
+     * @param string $key
+     * @param int $default
+     * @return int
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function getCounter(string $key, int $default = 0): int
     {
         self::$logger?->info("[getCounter] started");
@@ -501,11 +698,36 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * Удаляет счётчик из репозитория и Redis (если подключён).
+     *
+     * Алиас `drop()` для одного ключа: счётчик — обычный ключ кэша.
+     *
+     * @param string $key
+     * @return Result
+     * @throws RedisException
+     * @throws RedisClientException
+     */
     public static function delCounter(string $key): Result
     {
         return self::drop($key);
     }
 
+    /**
+     * Хелпер для работы с Redis.
+     *
+     * Предоставляет методы, аналогичные методам фасада:
+     *
+     * check() — аналог redisCheck()
+     * fetch() — аналог redisFetch()
+     * push() — аналог redisPush()
+     * del() — аналог redisDel()
+     * keys() — аналога нет
+     *
+     * @return RedisHelper
+     * @throws RedisClientException если Redis не подключён (init с redis_enabled=true
+     *                              не вызывался или соединение не установилось)
+     */
     public static function redis(): RedisHelper
     {
         $redis = self::getConnector();
