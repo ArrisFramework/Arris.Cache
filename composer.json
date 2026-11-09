@@ -21,7 +21,6 @@
     ],
     "require": {
         "php": "^8.2",
-        "ext-pdo": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
         "ext-redis": "*",
@@ -30,8 +29,10 @@
         "karelwintersky/arris.toolkit.nanoredis": "^1.0.1"
     },
     "suggest": {
+        "ext-pdo": "Required for RULE_SOURCE_SQL rules (Cache::addRule with source=\"sql\")"
     },
     "require-dev": {
+        "ext-pdo": "*",
         "phpunit/phpunit": "^10.5"
     }
 }

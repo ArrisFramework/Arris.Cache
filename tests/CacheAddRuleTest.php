@@ -197,6 +197,37 @@ class CacheAddRuleTest extends AbstractCacheTestCase
         $this->assertFalse(Cache::check('rows'));
     }
 
+    public function testAddRuleSqlThrowsWhenPdoExtensionIsMissing(): void
+    {
+        if (!function_exists('shell_exec')) {
+            $this->markTestSkipped('shell_exec is disabled');
+        }
+
+        // php -n disables php.ini, so shared ext-pdo is not loaded. If PDO is
+        // compiled in, the scenario cannot be reproduced.
+        $probe = (string)shell_exec(
+            escapeshellarg(PHP_BINARY) . ' -n -r ' . escapeshellarg('echo extension_loaded("pdo") ? "1" : "0";')
+        );
+        if (trim($probe) === '1') {
+            $this->markTestSkipped('ext-pdo is compiled in and cannot be disabled with php -n');
+        }
+
+        $script = 'require ' . var_export(dirname(__DIR__) . '/vendor/autoload.php', true) . ';'
+            . 'try {'
+            . ' Arris\Cache\Cache::addRule("rows", true, Arris\Cache\Cache::RULE_SOURCE_SQL, "SELECT 1");'
+            . ' echo "NO_EXCEPTION";'
+            . '} catch (Arris\Cache\Exceptions\CacheDatabaseException $e) {'
+            . ' echo $e->getMessage();'
+            . '}';
+
+        $output = (string)shell_exec(
+            escapeshellarg(PHP_BINARY) . ' -n -r ' . escapeshellarg($script) . ' 2>&1'
+        );
+
+        $this->assertStringContainsString('RULE_SOURCE_SQL requires ext-pdo', $output);
+        $this->assertStringNotContainsString('NO_EXCEPTION', $output);
+    }
+
     public function testAddRuleSqlThrowsCacheDatabaseException(): void
     {
         Cache::init(redis_enabled: false, PDO: $this->createSqlite());

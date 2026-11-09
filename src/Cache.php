@@ -191,6 +191,14 @@ class Cache
             case self::RULE_SOURCE_SQL: {
                 self::$logger?->info("[addRule] RULE SOURCE SQL");
 
+                // PDO — опциональная зависимость (composer suggest): без расширения
+                // SQL-правило выполнить нельзя. Проверяем именно расширение, а не
+                // только переданный объект: тип ?PDO валиден и без ext-pdo.
+                if (!extension_loaded('pdo')) {
+                    self::$logger?->error("[addRule] RULE_SOURCE_SQL requires ext-pdo");
+                    throw new CacheDatabaseException("RULE_SOURCE_SQL requires ext-pdo");
+                }
+
                 // Коннекта к БД нет: правило не выполняется и ничего не кэшируется
                 if (is_null(self::$pdo)) {
                     $result->error("[ERROR] Key {$rule_name} not found, action is SQL, but PDO not connected");

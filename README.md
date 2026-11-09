@@ -12,7 +12,7 @@ Redis (через `karelwintersky/arris.toolkit.nanoredis`) — слой пер�
 composer require karelwintersky/arris.cache
 ```
 
-Требования: PHP `^8.2`, `ext-redis`, `ext-pdo`, `ext-json`, `ext-mbstring`.
+Требования: PHP `^8.2`, `ext-redis`, `ext-json`, `ext-mbstring`. `ext-pdo` — опционально (`suggest`): нужен только для правил `RULE_SOURCE_SQL`.
 
 ## Быстрый старт
 
@@ -83,7 +83,7 @@ $districts = Cache::get('districts');
 
 - Если Redis подключён и ключ существует — значение берётся из Redis и кладётся в репозиторий (его TTL продолжает жить в Redis).
 - Иначе значение вычисляется по источнику:
-  - `RULE_SOURCE_SQL` (`'sql'`) — `$pdo->query($action)->fetchAll()`; `PDOException` оборачивается в `CacheDatabaseException`;
+  - `RULE_SOURCE_SQL` (`'sql'`) — `$pdo->query($action)->fetchAll()`; `PDOException` оборачивается в `CacheDatabaseException`. Требует `ext-pdo` (в composer — `suggest`); если расширения нет, `addRule()` бросает `CacheDatabaseException` с сообщением «RULE_SOURCE_SQL requires ext-pdo»;
   - `RULE_SOURCE_CALLBACK` (`'callback'`) — вызов коллбэка;
   - `RULE_SOURCE_RAW` (`'raw'`) — значение as-is.
 - `$source` по умолчанию — `''` (`RULE_SOURCE_UNDEFINED`), это то же самое, что `RULE_SOURCE_CALLBACK`. Любой другой непустой источник возвращает `Result` с ошибкой и ничего не кэширует.
@@ -185,7 +185,6 @@ if ($result->is_success) {
 - `sortHashBySubkey($dataset, $order_by, $strict)` — usort по ключу подмассива;
 - `raiseFlag($flag, $value, $ttl)` — тонкая обёртка над `redisPush`;
 - `jsonize($data)` — `json_encode` (UNICODE | PRESERVE_ZERO_FRACTION | INVALID_UTF8_SUBSTITUTE | THROW_ON_ERROR);
-- `overrideDefaults($defaults, $options)` — дефолты, перезаписанные опциями;
 - `fetchOptionBool($option, $if_present, $if_not_present_or_zero)` — чтение 0/1-флага из Redis;
 - `compileCallbackHandler($actor, $logger)` — компиляция коллбэка в `[callable, params]`; `params` обязан быть массивом, handler — непустым `Closure`/строкой, иначе `CacheCallbackException`.
 
