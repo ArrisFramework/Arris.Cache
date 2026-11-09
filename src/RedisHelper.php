@@ -69,28 +69,30 @@ class RedisHelper implements RedisHelperInterface
      */
     public function push(string $key_name, $data, int $ttl = 0, bool $use_json_encode = true): bool
     {
-        $this->logger->info("[redis][push] called");
+        $this->logger->info("[redis][push] called", ['key' => $key_name, 'ttl' => $ttl]);
 
-        if (!$this->redis->set($key_name, ($use_json_encode ? CacheHelper::jsonize($data) : $data))) {
-            $this->logger->info("[redis][push] ERROR: set failed");
+        // Атомарная запись одной командой: SETEX при TTL > 0, иначе SET.
+        // Раньше это были set() + expire(): между ними ключ жил без TTL,
+        // а неудачный expire() оставлял ключ вечным.
+        $pushed = $this->redis->set(
+            $key_name,
+            ($use_json_encode ? CacheHelper::jsonize($data) : $data),
+            $ttl > 0 ? $ttl : null
+        );
+
+        if (!$pushed) {
+            $this->logger->error("[redis][push] ERROR: set failed", ['key' => $key_name, 'ttl' => $ttl]);
             return false;
         }
-        $this->logger->info("[redis][push] Data pushed to REDIS");
 
-        if ($ttl > 0) {
-            $this->redis->expire($key_name, $ttl);
-            $this->logger->info("[redis][push] TTL {$ttl} seconds");
-        } else {
-            $this->logger->info("[redis][push] TTL unlimited");
-        }
+        $this->logger->info(
+            $ttl > 0
+                ? "[redis][push] Data pushed to REDIS, TTL {$ttl} seconds"
+                : "[redis][push] Data pushed to REDIS, TTL unlimited",
+            ['key' => $key_name]
+        );
 
-        if ($this->redis->exists($key_name)) {
-            $this->logger->info("[redis][push] Post-push check: SUCCESS");
-            return true;
-        }
-        $this->logger->info("[redis][push] Post-push check: ERROR");
-
-        return false;
+        return true;
     }
 
     /**

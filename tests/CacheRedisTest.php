@@ -309,6 +309,38 @@ class CacheRedisTest extends AbstractCacheTestCase
         $this->assertFalse(Cache::redisCheck('ttl'));
     }
 
+    public function testPushAppliesTtlInTheSameCommand(): void
+    {
+        Cache::redisPush('ttl_atomic', 'v', ttl: 60);
+
+        $ttl = Cache::getConnector()->getClient()->ttl('ttl_atomic');
+        $this->assertGreaterThan(0, $ttl);
+        $this->assertLessThanOrEqual(60, $ttl);
+
+        // SET without TTL clears the previous TTL (same as before the refactor).
+        Cache::redisPush('ttl_atomic', 'v2');
+        $this->assertSame(-1, Cache::getConnector()->getClient()->ttl('ttl_atomic'));
+    }
+
+    public function testAddRuleMirrorsToRedisWithTtl(): void
+    {
+        $result = Cache::addRule(
+            'rule_ttl',
+            source: Cache::RULE_SOURCE_RAW,
+            action: ['v' => 7],
+            ttl: 120
+        );
+
+        $this->assertTrue($result->is_success);
+        $this->assertStringContainsString('saved to redis', $result->getMessage());
+        $this->assertStringContainsString('TTL 120 seconds', $result->getMessage());
+        $this->assertSame(['v' => 7], Cache::redisFetch('rule_ttl'));
+
+        $ttl = Cache::getConnector()->getClient()->ttl('rule_ttl');
+        $this->assertGreaterThan(0, $ttl);
+        $this->assertLessThanOrEqual(120, $ttl);
+    }
+
     public function testFetchOptionBool(): void
     {
         CacheHelper::raiseFlag('flag1', 1);

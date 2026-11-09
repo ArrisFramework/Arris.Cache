@@ -196,19 +196,20 @@ class Cache implements CacheInterface
         self::$logger?->info("[addRule] Pushed data to cache");
 
         if (self::isRedisConnected()) {
-            self::$redis->set($rule_name, CacheHelper::jsonize($data));
-            self::$logger?->info("[addRule] Pushed to redis");
-
-            $message .= ", stored to cache, saved to redis, ";
-
-            if ($ttl > 0) {
-                self::$redis->expire($rule_name, $ttl);
-                self::$logger?->info("[addRule] Setting TTL {$ttl} seconds");
-                $message .= "TTL {$ttl} seconds";
-            } else {
-                self::$logger?->info("[addRule] TTL unlimited");
-                $message .= "TTL unlimited";
+            // Единственная точка записи в Redis: атомарный SETEX/SET с проверкой результата.
+            // Ошибка Redis не откатывает репозиторий, но и не маскируется под success.
+            if (!self::redis()->push($rule_name, $data, $ttl)) {
+                self::$logger?->error("[addRule] REDIS write failed, value kept in cache only", [
+                    'key' => $rule_name,
+                    'ttl' => $ttl,
+                ]);
+                $result->error("Rule `{$rule_name}` stored to cache, but REDIS write failed");
+                return $result;
             }
+
+            self::$logger?->info("[addRule] Pushed to REDIS", ['key' => $rule_name, 'ttl' => $ttl]);
+            $message .= ", stored to cache, saved to redis, ";
+            $message .= $ttl > 0 ? "TTL {$ttl} seconds" : "TTL unlimited";
 
         } else {
             $message .= ", stored to cache, redis disabled";

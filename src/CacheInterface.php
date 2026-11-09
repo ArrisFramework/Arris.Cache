@@ -62,7 +62,9 @@ interface CacheInterface
      * @param int $ttl - время жизни значения в Redis в секундах, 0 - вечно.
      *                   На in-memory репозиторий не действует: его копия не истекает.
      *
-     * @return Result
+     * @return Result При подключённом Redis запись зеркалится атомарно (SETEX/SET);
+     *                если Redis отклонил запись, возвращается ошибка (значение
+     *                при этом остаётся в репозитории).
      * @throws JsonException
      * @throws RedisException
      * @throws RedisClientException
