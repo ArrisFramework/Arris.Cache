@@ -38,6 +38,14 @@ Cache::init(
     PDO: $pdo
 );
 
+// С паролем: значение уходит в RedisClient как auth (пустая строка = без пароля)
+Cache::init(
+    redis_host: '127.0.0.1',
+    redis_database: 0,
+    redis_enabled: true,
+    redis_password: getenv('REDIS_PASSWORD') ?: null,
+);
+
 // SQL-источник
 Cache::addRule(
     'districts',
@@ -68,6 +76,8 @@ Cache::addRule(
 
 $districts = Cache::get('districts');
 ```
+
+> `redis_password` уходит в RedisClient как `auth`; пустая строка = без пароля. Пароль требует, чтобы клиент выполнял `AUTH` **до** `SELECT`: в `arris.toolkit.nanoredis` 1.0.0 порядок был обратный и сервер с `requirepass` отвечал `NOAUTH Authentication required`; исправлено в 1.0.1, пакет требует `^1.0.1`.
 
 ## Правила: `Cache::addRule($rule_name, $enabled = true, $source = '', $action = null, $ttl = 0): Result`
 

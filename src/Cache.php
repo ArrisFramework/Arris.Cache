@@ -53,7 +53,8 @@ class Cache implements CacheInterface
         int $redis_database = self::REDIS_DEFAULT_DB,
         bool $redis_enabled = true,
         $PDO = null,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
+        ?string $redis_password = null
     ): Result
     {
         $result = new Result();
@@ -65,30 +66,16 @@ class Cache implements CacheInterface
         // могли быть загружены из другого Redis-подключения/БД.
         self::$repository = [];
 
-        $options = CacheHelper::overrideDefaults([
-            'enabled'   =>  false,
-            'host'      =>  self::REDIS_DEFAULT_HOST,
-            'port'      =>  self::REDIS_DEFAULT_PORT,
-            'timeout'   =>  null,
-            'persistent'=>  '',
-            'database'  =>  self::REDIS_DEFAULT_DB,
-            'password'  =>  ''
-        ], [
-            'enabled'   =>  $redis_enabled,
-            'host'      =>  $redis_host,
-            'port'      =>  $redis_port,
-            'database'  =>  $redis_database
-        ]);
-
         self::$redis = new RedisClient(
-            host: $options['host'],
-            port: $options['port'],
-            database: $options['database'],
-            enabled: $options['enabled']
+            host: $redis_host,
+            port: $redis_port,
+            database: $redis_database,
+            auth: $redis_password === '' ? null : $redis_password,
+            enabled: $redis_enabled
         );
         self::$logger?->info("[init] NanoRedis instantiated");
 
-        if ($options['enabled']) {
+        if ($redis_enabled) {
             try {
                 self::$redis->connect();
                 self::$logger?->info("[init] REDIS Connected");

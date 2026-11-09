@@ -37,6 +37,7 @@ interface CacheInterface
      * @param bool $redis_enabled
      * @param null $PDO
      * @param LoggerInterface|null $logger
+     * @param string|null $redis_password Пароль Redis (передаётся клиенту как `auth`; пустая строка = без пароля)
      *
      * @return Result
      * @throws RedisClientException
@@ -47,7 +48,8 @@ interface CacheInterface
         int     $redis_database = self::REDIS_DEFAULT_DB,
         bool    $redis_enabled = true,
         $PDO = null,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
+        ?string $redis_password = null
     ): Result;
 
     /**

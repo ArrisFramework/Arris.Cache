@@ -30,6 +30,27 @@ class CacheRepositoryTest extends AbstractCacheTestCase
         $this->assertNull(Cache::get('stale'));
     }
 
+    public function testInitPassesRedisPasswordToClient(): void
+    {
+        Cache::init(redis_enabled: false, redis_password: 'secret');
+
+        $client = self::cacheState('redis');
+        $this->assertInstanceOf(\Arris\Toolkit\RedisClient::class, $client);
+
+        // RedisClient has no auth getter; the only way to check the wiring is reflection.
+        $auth = (new \ReflectionProperty($client, 'auth'))->getValue($client);
+        $this->assertSame('secret', $auth);
+    }
+
+    public function testInitTreatsEmptyRedisPasswordAsNoAuth(): void
+    {
+        Cache::init(redis_enabled: false, redis_password: '');
+
+        $client = self::cacheState('redis');
+        $auth = (new \ReflectionProperty($client, 'auth'))->getValue($client);
+        $this->assertNull($auth);
+    }
+
     public function testSetGetRoundTrip(): void
     {
         Cache::set('key', 'value');
