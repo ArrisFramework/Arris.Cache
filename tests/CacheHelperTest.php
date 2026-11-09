@@ -181,6 +181,41 @@ class CacheHelperTest extends TestCase
         $this->assertSame(['a', 'b', 'c', 'no-id', 'null-id'], array_column($sorted, 'name'));
     }
 
+    public function testSortHashBySubkeySortsStrings(): void
+    {
+        $dataset = [
+            ['name' => 'beta'],
+            ['name' => 'alpha'],
+            ['name' => 'gamma'],
+        ];
+
+        $this->assertSame(
+            ['alpha', 'beta', 'gamma'],
+            array_column(CacheHelper::sortHashBySubkey($dataset, 'name'), 'name')
+        );
+
+        // Проверяем и strict-ветку: она влияет только на проверку равенства,
+        // порядок по-прежнему задаёт <=>.
+        $this->assertSame(
+            ['alpha', 'beta', 'gamma'],
+            array_column(CacheHelper::sortHashBySubkey($dataset, 'name', strict: true), 'name')
+        );
+    }
+
+    public function testSortHashBySubkeyComparesNumericStringsNumerically(): void
+    {
+        $dataset = [
+            ['v' => '10'],
+            ['v' => '9'],
+            ['v' => '2'],
+        ];
+
+        $this->assertSame(
+            ['2', '9', '10'],
+            array_column(CacheHelper::sortHashBySubkey($dataset, 'v'), 'v')
+        );
+    }
+
     public function testJsonizePreservesUnicodeAndZeroFraction(): void
     {
         $this->assertSame('{"привет":"мир"}', CacheHelper::jsonize(['привет' => 'мир']));
